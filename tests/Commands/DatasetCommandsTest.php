@@ -1,25 +1,7 @@
 <?php
 
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
-
-/**
- * Run a command and return its exit code and output together.
- *
- * The `artisan()` helper matches each output expectation against a single
- * write, and a rendered table is one write, so several expectations can never
- * share it. Asserting on the captured output avoids that trap.
- *
- * @param array<string,mixed> $arguments
- * @return array{int,string}
- */
-function console(string $command, array $arguments = []): array
-{
-    $status = Artisan::call($command, $arguments);
-
-    return [$status, Artisan::output()];
-}
 
 it('lists the datasets with their connections and relations', function (): void {
     [$status, $output] = console('datasets:list');

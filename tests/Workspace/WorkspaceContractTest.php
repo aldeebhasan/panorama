@@ -250,3 +250,15 @@ it('binds the values of a hand written query', function (string $engine): void {
 
     expect(array_column($rows, 'id'))->toEqual([1, 3]);
 })->with('engines');
+
+it('orders by an aggregate alias', function (string $engine): void {
+    $rows = $this->datasets->from('orders')
+        ->on($engine)
+        ->join('crm_customers')
+        ->select('crm_customers.name', 'sum(orders.amount) as revenue')
+        ->groupBy('crm_customers.name')
+        ->orderBy('revenue', 'desc')
+        ->get();
+
+    expect(array_column($rows, 'name'))->toBe(['Ada', 'Linus']);
+})->with('engines');

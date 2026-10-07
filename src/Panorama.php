@@ -2,97 +2,124 @@
 
 namespace Aldeebhasan\Panorama;
 
-use Aldeebhasan\Panorama\Contracts\ReportContract;
+use Aldeebhasan\Panorama\Dataset\Datasets;
+use Aldeebhasan\Panorama\Dataset\Params;
+use Aldeebhasan\Panorama\Deliver\DownloadDestination;
+use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
-use Aldeebhasan\Panorama\Reports\Report;
-use Illuminate\Contracts\Cache\Repository as CacheRepository;
-use Illuminate\Support\Facades\Cache;
+use Aldeebhasan\Panorama\Render\RendererRegistry;
+use Aldeebhasan\Panorama\Report\Report;
+use Aldeebhasan\Panorama\Report\ReportContract;
+use Aldeebhasan\Panorama\Report\ReportRun;
+use Aldeebhasan\Panorama\Support\ParameterValidator;
+use Psr\Container\ContainerInterface;
 
+/**
+ * Where reports are registered and run.
+ *
+ * Running a report validates its parameters, checks authorization when a user
+ * is given, and hands back a {@see ReportRun} that has not executed anything
+ * yet. The format and the destination are chosen on the run.
+ */
 class Panorama
 {
-    /**
-     * The registered reports, keyed by their report key.
-     *
-     * @var array<string,string|ReportContract>
-     */
+    /** @var array<string,string|ReportContract> */
     private array $reports = [];
 
-    /**
-     * Whether the reports declared in the config have been loaded.
-     */
-    private bool $booted = false;
+    public function __construct(
+        private readonly ContainerInterface $container,
+        private readonly Datasets $datasets,
+        private readonly ParameterValidator $validator,
+        private readonly RendererRegistry $renderers,
+        private readonly DownloadDestination $download,
+        private readonly StorageDestination $storage,
+    ) {
+    }
 
     /**
-     * Register a report, either as a class name or as a ready made instance.
-     * Class names are validated when they are resolved, not when they are given.
+     * Register a report, as a class name or a ready made instance. Class names
+     * are validated when they are resolved, not when they are given.
      *
+     * @param class-string<ReportContract>|string|ReportContract $report
      *
      * @throws ReportingException
      */
     public function register(string|ReportContract $report): self
     {
-        $this->bootRegistry();
-
         $instance = is_string($report) ? $this->resolve($report) : $report;
+
         $this->reports[$instance->key()] = $report;
 
         return $this;
     }
 
     /**
-     * Resolve a fresh instance of the given report.
+     * A fresh instance of the named report.
      *
      * @throws ReportingException
      */
     public function report(string $key): ReportContract
     {
-        $this->bootRegistry();
-
-        $report = $this->reports[$key] ?? throw ReportingException::reportNotFound($key);
+        $report = $this->reports[$key] ?? throw ReportingException::reportNotFound($key, $this->keys());
 
         return is_string($report) ? $this->resolve($report) : clone $report;
     }
 
     /**
-     * Build the given report, using the cache when it is enabled.
+     * Prepare a run of the given report.
      *
-     * @param array<string,mixed> $filters
-     * @return array<array-key,mixed>
-     *
-     * @throws ReportingException
-     */
-    public function generate(string $key, array $filters = []): array
-    {
-        $report = $this->report($key)->filters($filters);
-
-        $ttl = $report instanceof Report ? $report->cacheTtl() : 0;
-        if ($ttl <= 0) {
-            return $report->build();
-        }
-
-        return $this->cache()->remember($report->cacheKey(), $ttl, fn() => $report->build());
-    }
-
-    /**
-     * Forget the cached payload of the given report for the given filters.
-     *
-     * @param array<string,mixed> $filters
+     * @param class-string<ReportContract>|string|ReportContract $report
+     * @param array<string,mixed> $params
+     * @param mixed $user checked against the report's own authorize(), when given
      *
      * @throws ReportingException
      */
-    public function forget(string $key, array $filters = []): bool
+    public function run(string|ReportContract $report, array $params = [], mixed $user = null): ReportRun
     {
-        $report = $this->report($key)->filters($filters);
+        $instance = is_string($report) && !$this->has($report) && class_exists($report)
+            ? $this->resolve($report)
+            : (is_string($report) ? $this->report($report) : $report);
 
-        if (!$report instanceof Report) {
-            return false;
+        if ($user !== null && !$instance->authorize($user)) {
+            throw ReportingException::unauthorized($instance->key());
         }
 
-        return $this->cache()->forget($report->cacheKey());
+        $validated = $this->validator->validate(Params::make($params), $instance->parameters());
+
+        $merge = $instance->query($this->datasets)->params($validated);
+
+        $engine = $instance instanceof Report ? $instance->engine() : null;
+        if ($engine !== null) {
+            $merge->on($engine);
+        }
+
+        return new ReportRun(
+            $instance,
+            $validated,
+            $merge,
+            $this->renderers,
+            $this->download,
+            $this->storage,
+        );
+    }
+
+    public function has(string $key): bool
+    {
+        return isset($this->reports[$key]);
     }
 
     /**
-     * All the registered report keys mapped to their names.
+     * The registered report keys.
+     *
+     * @return list<string>
+     */
+    public function keys(): array
+    {
+        return array_keys($this->reports);
+    }
+
+    /**
+     * The registered reports, keyed by key and mapped to their names.
      *
      * @return array<string,string>
      *
@@ -100,10 +127,8 @@ class Panorama
      */
     public function all(): array
     {
-        $this->bootRegistry();
-
         $reports = [];
-        foreach (array_keys($this->reports) as $key) {
+        foreach ($this->keys() as $key) {
             $reports[$key] = $this->report($key)->name();
         }
 
@@ -113,56 +138,14 @@ class Panorama
     /**
      * @throws ReportingException
      */
-    public function has(string $key): bool
-    {
-        $this->bootRegistry();
-
-        return isset($this->reports[$key]);
-    }
-
-    /**
-     * Load the reports declared in the config, only once.
-     *
-     * @throws ReportingException
-     */
-    private function bootRegistry(): void
-    {
-        if ($this->booted) {
-            return;
-        }
-
-        $this->booted = true;
-
-        $configured = config('panorama.reports', []);
-        foreach (is_array($configured) ? $configured : [] as $report) {
-            if (!is_string($report) && !$report instanceof ReportContract) {
-                throw ReportingException::invalidReport(get_debug_type($report));
-            }
-
-            $this->register($report);
-        }
-    }
-
-    /**
-     * Resolve a report class name out of the container.
-     *
-     * @throws ReportingException
-     */
     private function resolve(string $report): ReportContract
     {
-        $instance = class_exists($report) ? app($report) : null;
+        $instance = class_exists($report) ? $this->container->get($report) : null;
 
         if (!$instance instanceof ReportContract) {
             throw ReportingException::invalidReport($report);
         }
 
         return $instance;
-    }
-
-    private function cache(): CacheRepository
-    {
-        $store = config('panorama.cache.store');
-
-        return Cache::store(is_string($store) ? $store : null);
     }
 }

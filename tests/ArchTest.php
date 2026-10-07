@@ -22,6 +22,9 @@ arch('the core stages never reach for the framework')
         'Aldeebhasan\Panorama\Dataset',
         'Aldeebhasan\Panorama\Query',
         'Aldeebhasan\Panorama\Workspace',
+        'Aldeebhasan\Panorama\Report',
+        'Aldeebhasan\Panorama\Render',
+        'Aldeebhasan\Panorama\Deliver',
         'Aldeebhasan\Panorama\Support',
     ])
     ->not->toUse([
@@ -44,10 +47,11 @@ arch('the core stages never reach for the framework')
  * engine normalizes rows and the query layer describes a merge; neither has
  * any business knowing a framework exists.
  */
-arch('the schema engine and the query layer are plain php')
+arch('the schema engine, the query layer and the report layer are plain php')
     ->expect([
         'Aldeebhasan\Panorama\Schema',
         'Aldeebhasan\Panorama\Query',
+        'Aldeebhasan\Panorama\Report',
     ])
     ->not->toUse('Illuminate');
 

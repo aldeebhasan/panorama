@@ -1,0 +1,59 @@
+<?php
+
+namespace {{ namespace }};
+
+use Aldeebhasan\Panorama\Dataset\Datasets;
+use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Report\Column;
+use Aldeebhasan\Panorama\Report\Report;
+
+class {{ class }} extends Report
+{
+    /**
+     * The key this report is run by.
+     */
+    protected string $key = '{{ reportKey }}';
+
+    /**
+     * The filters this report accepts, and how they are validated.
+     *
+     * @return array<string,mixed>
+     */
+    public function parameters(): array
+    {
+        return [
+            // 'from' => ['required', 'date'],
+            // 'to' => ['required', 'date', 'after:from'],
+        ];
+    }
+
+    /**
+     * The merge this report is. Join keys are inferred from the relations the
+     * dataset schemas declare.
+     */
+    public function query(Datasets $datasets): Merge
+    {
+        return $datasets->from('orders');
+    }
+
+    /**
+     * How the columns are labelled and formatted.
+     *
+     * @return list<Column>
+     */
+    public function columns(): array
+    {
+        return [
+            // Column::make('name')->label('Customer'),
+            // Column::make('revenue')->money('USD')->total(),
+        ];
+    }
+
+    /**
+     * Who may run this report.
+     */
+    public function authorize(mixed $user = null): bool
+    {
+        return true;
+    }
+}
