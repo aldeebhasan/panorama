@@ -2,8 +2,18 @@
 
 namespace Aldeebhasan\Panorama;
 
+use Aldeebhasan\Panorama\Commands\DatasetDescribeCommand;
+use Aldeebhasan\Panorama\Commands\DatasetListCommand;
+use Aldeebhasan\Panorama\Commands\MakeDatasetCommand;
 use Aldeebhasan\Panorama\Commands\ReportGenerateCommand;
 use Aldeebhasan\Panorama\Commands\ReportListCommand;
+use Aldeebhasan\Panorama\Connection\ConnectionRegistry;
+use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
+use Aldeebhasan\Panorama\Support\ParameterValidator;
+use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Validation\Factory as ValidationFactory;
+use Illuminate\Database\ConnectionResolverInterface;
+use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 
 class PanoramaServiceProvider extends ServiceProvider
@@ -27,11 +37,60 @@ class PanoramaServiceProvider extends ServiceProvider
 
         $this->app->singleton(Panorama::class);
 
+        $this->app->singleton(ConnectionRegistry::class, fn(Application $app) => new ConnectionRegistry(
+            $this->section('panorama.connections'),
+            $app->make(ConnectionResolverInterface::class),
+            $app->make(HttpFactory::class),
+        ));
+
+        $this->app->singleton(DatasetRegistry::class, fn(Application $app) => $this->datasets(
+            new DatasetRegistry($app->make(ConnectionRegistry::class), $app),
+        ));
+
+        $this->app->singleton(ParameterValidator::class, fn(Application $app) => new ParameterValidator(
+            $app->make(ValidationFactory::class),
+        ));
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ReportListCommand::class,
                 ReportGenerateCommand::class,
+                DatasetListCommand::class,
+                DatasetDescribeCommand::class,
+                MakeDatasetCommand::class,
             ]);
         }
+    }
+
+    /**
+     * Load the datasets declared in config, listed and discovered.
+     */
+    private function datasets(DatasetRegistry $registry): DatasetRegistry
+    {
+        foreach ($this->section('panorama.datasets.register') as $dataset) {
+            if (is_string($dataset)) {
+                $registry->register($dataset);
+            }
+        }
+
+        foreach ($this->section('panorama.datasets.discover') as $path => $namespace) {
+            if (is_string($path) && is_string($namespace)) {
+                $registry->discover($path, $namespace);
+            }
+        }
+
+        return $registry;
+    }
+
+    /**
+     * Read an array out of the config without letting `mixed` leak onward.
+     *
+     * @return array<array-key,mixed>
+     */
+    private function section(string $key): array
+    {
+        $value = config($key, []);
+
+        return is_array($value) ? $value : [];
     }
 }

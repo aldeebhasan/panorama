@@ -1,0 +1,53 @@
+<?php
+
+namespace {{ namespace }};
+
+use Aldeebhasan\Panorama\Dataset\Dataset;
+use Aldeebhasan\Panorama\Dataset\Params;
+use Aldeebhasan\Panorama\Schema\Schema;
+
+class {{ class }} extends Dataset
+{
+    /**
+     * The name reports and merges refer to this dataset by.
+     */
+    public string $name = '{{ datasetName }}';
+
+    /**
+     * The connection in config/panorama.php this dataset reads from.
+     */
+    public string $connection = 'default';
+
+    /**
+     * The filters this dataset accepts. Leave empty to receive them all.
+     *
+     * @return array<string,mixed>
+     */
+    public function parameters(): array
+    {
+        return [
+            // 'from' => ['required', 'date'],
+        ];
+    }
+
+    /**
+     * Pull the raw rows, pushing filters down to the source where it can
+     * apply them itself.
+     */
+    public function fetch(Params $params): iterable
+    {
+        return $this->query()
+            ->table('{{ datasetName }}')
+            ->cursor();
+    }
+
+    /**
+     * The shape every row this dataset yields is guaranteed to have.
+     */
+    public function schema(): Schema
+    {
+        return Schema::make()
+            ->primaryKey('id')
+            ->int('id');
+    }
+}
