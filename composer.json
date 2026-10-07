@@ -68,7 +68,8 @@
                 "Aldeebhasan\\Panorama\\PanoramaServiceProvider"
             ],
             "aliases": {
-                "Panorama": "Aldeebhasan\\Panorama\\Facades\\Panorama"
+                "Panorama": "Aldeebhasan\\Panorama\\Facades\\Panorama",
+                "Datasets": "Aldeebhasan\\Panorama\\Facades\\Datasets"
             }
         }
     },

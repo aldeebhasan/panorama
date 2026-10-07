@@ -12,8 +12,14 @@ use Aldeebhasan\Panorama\Tests\Datasets\CrmCustomers;
 use Aldeebhasan\Panorama\Tests\Datasets\Orders;
 
 it('registers the datasets declared in the config', function (): void {
-    expect(app(DatasetRegistry::class)->names())
-        ->toEqualCanonicalizing(['orders', 'crm_customers', 'db_orders']);
+    expect(app(DatasetRegistry::class)->names())->toEqualCanonicalizing([
+        'orders',
+        'crm_customers',
+        'db_orders',
+        'shop_a_sales',
+        'shop_b_sales',
+        'shop_c_sales',
+    ]);
 });
 
 it('looks a dataset up by name, never by class name', function (): void {
@@ -53,7 +59,8 @@ it('names the known datasets when one is missing', function (): void {
     app(DatasetRegistry::class)->get('ordrs');
 })->throws(
     UnknownDataset::class,
-    'No dataset is registered under the name [ordrs]. Known datasets are [crm_customers, db_orders, orders].',
+    'No dataset is registered under the name [ordrs]. Known datasets are '
+    . '[crm_customers, db_orders, orders, shop_a_sales, shop_b_sales, shop_c_sales].',
 );
 
 it('rejects a class that is not a dataset', function (): void {
@@ -65,7 +72,8 @@ it('discovers datasets in a directory', function (): void {
 
     $registry->discover(__DIR__ . '/../Datasets', 'Aldeebhasan\Panorama\Tests\Datasets');
 
-    expect($registry->names())->toEqualCanonicalizing(['orders', 'crm_customers', 'db_orders']);
+    // Every dataset class in the directory, found without being listed.
+    expect($registry->names())->toEqualCanonicalizing(app(DatasetRegistry::class)->names());
 });
 
 it('ignores a discovery path that does not exist', function (): void {

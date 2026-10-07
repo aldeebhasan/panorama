@@ -9,7 +9,11 @@ use Aldeebhasan\Panorama\Commands\ReportGenerateCommand;
 use Aldeebhasan\Panorama\Commands\ReportListCommand;
 use Aldeebhasan\Panorama\Connection\ConnectionRegistry;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
+use Aldeebhasan\Panorama\Dataset\Datasets;
+use Aldeebhasan\Panorama\Query\Planner;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
+use Aldeebhasan\Panorama\Workspace\MergeRunner;
+use Aldeebhasan\Panorama\Workspace\WorkspaceFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
 use Illuminate\Database\ConnectionResolverInterface;
@@ -45,6 +49,26 @@ class PanoramaServiceProvider extends ServiceProvider
 
         $this->app->singleton(DatasetRegistry::class, fn(Application $app) => $this->datasets(
             new DatasetRegistry($app->make(ConnectionRegistry::class), $app),
+        ));
+
+        $this->app->singleton(Planner::class, fn(Application $app) => new Planner(
+            $app->make(DatasetRegistry::class),
+        ));
+
+        $this->app->singleton(WorkspaceFactory::class, fn(Application $app) => new WorkspaceFactory(
+            $this->section('panorama.workspaces'),
+            $app->make(ConnectionResolverInterface::class),
+            is_string($engine = config('panorama.workspace')) ? $engine : 'database',
+        ));
+
+        $this->app->singleton(MergeRunner::class, fn(Application $app) => new MergeRunner(
+            $app->make(Planner::class),
+            $app->make(WorkspaceFactory::class),
+        ));
+
+        $this->app->singleton(Datasets::class, fn(Application $app) => new Datasets(
+            $app->make(DatasetRegistry::class),
+            $app->make(MergeRunner::class),
         ));
 
         $this->app->singleton(ParameterValidator::class, fn(Application $app) => new ParameterValidator(

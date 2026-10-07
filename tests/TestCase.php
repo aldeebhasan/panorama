@@ -6,6 +6,9 @@ use Aldeebhasan\Panorama\PanoramaServiceProvider;
 use Aldeebhasan\Panorama\Tests\Datasets\CrmCustomers;
 use Aldeebhasan\Panorama\Tests\Datasets\DbOrders;
 use Aldeebhasan\Panorama\Tests\Datasets\Orders;
+use Aldeebhasan\Panorama\Tests\Datasets\ShopASales;
+use Aldeebhasan\Panorama\Tests\Datasets\ShopBSales;
+use Aldeebhasan\Panorama\Tests\Datasets\ShopCSales;
 use Aldeebhasan\Panorama\Tests\Reports\SampleReport;
 use Illuminate\Support\Facades\Schema;
 use Orchestra\Testbench\TestCase as Orchestra;
@@ -49,6 +52,9 @@ class TestCase extends Orchestra
             Orders::class,
             CrmCustomers::class,
             DbOrders::class,
+            ShopASales::class,
+            ShopBSales::class,
+            ShopCSales::class,
         ]);
     }
 
