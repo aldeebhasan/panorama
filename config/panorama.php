@@ -8,7 +8,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | The reports available to the package. Every entry must be a class
-    | implementing Aldeebhasan\Panorama\Contracts\ReportUI, usually by
+    | implementing Aldeebhasan\Panorama\Contracts\ReportContract, usually by
     | extending Aldeebhasan\Panorama\Reports\Report.
     |
     */

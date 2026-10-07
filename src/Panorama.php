@@ -2,7 +2,7 @@
 
 namespace Aldeebhasan\Panorama;
 
-use Aldeebhasan\Panorama\Contracts\ReportUI;
+use Aldeebhasan\Panorama\Contracts\ReportContract;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
 use Aldeebhasan\Panorama\Reports\Report;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
@@ -11,29 +11,29 @@ use Illuminate\Support\Facades\Cache;
 class Panorama
 {
     /**
-     * The registered reports, keyed by their report key. Null until the
-     * reports declared in the config have been loaded.
+     * The registered reports, keyed by their report key.
      *
-     * @var array<string,class-string<ReportUI>|ReportUI>|null
+     * @var array<string,string|ReportContract>
      */
-    private ?array $reports = null;
+    private array $reports = [];
+
+    /**
+     * Whether the reports declared in the config have been loaded.
+     */
+    private bool $booted = false;
 
     /**
      * Register a report, either as a class name or as a ready made instance.
+     * Class names are validated when they are resolved, not when they are given.
      *
-     * @param class-string<ReportUI>|ReportUI $report
      *
      * @throws ReportingException
      */
-    public function register(string|ReportUI $report): self
+    public function register(string|ReportContract $report): self
     {
         $this->bootRegistry();
 
-        if (is_string($report) && !is_subclass_of($report, ReportUI::class)) {
-            throw ReportingException::invalidReport($report);
-        }
-
-        $instance = is_string($report) ? app($report) : $report;
+        $instance = is_string($report) ? $this->resolve($report) : $report;
         $this->reports[$instance->key()] = $report;
 
         return $this;
@@ -44,13 +44,13 @@ class Panorama
      *
      * @throws ReportingException
      */
-    public function report(string $key): ReportUI
+    public function report(string $key): ReportContract
     {
         $this->bootRegistry();
 
         $report = $this->reports[$key] ?? throw ReportingException::reportNotFound($key);
 
-        return is_string($report) ? app($report) : clone $report;
+        return is_string($report) ? $this->resolve($report) : clone $report;
     }
 
     /**
@@ -127,18 +127,42 @@ class Panorama
      */
     private function bootRegistry(): void
     {
-        if ($this->reports !== null) {
+        if ($this->booted) {
             return;
         }
 
-        $this->reports = [];
-        foreach ((array) config('panorama.reports', []) as $report) {
+        $this->booted = true;
+
+        $configured = config('panorama.reports', []);
+        foreach (is_array($configured) ? $configured : [] as $report) {
+            if (!is_string($report) && !$report instanceof ReportContract) {
+                throw ReportingException::invalidReport(get_debug_type($report));
+            }
+
             $this->register($report);
         }
     }
 
+    /**
+     * Resolve a report class name out of the container.
+     *
+     * @throws ReportingException
+     */
+    private function resolve(string $report): ReportContract
+    {
+        $instance = class_exists($report) ? app($report) : null;
+
+        if (!$instance instanceof ReportContract) {
+            throw ReportingException::invalidReport($report);
+        }
+
+        return $instance;
+    }
+
     private function cache(): CacheRepository
     {
-        return Cache::store(config('panorama.cache.store'));
+        $store = config('panorama.cache.store');
+
+        return Cache::store(is_string($store) ? $store : null);
     }
 }

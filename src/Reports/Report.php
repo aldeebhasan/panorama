@@ -2,12 +2,12 @@
 
 namespace Aldeebhasan\Panorama\Reports;
 
-use Aldeebhasan\Panorama\Contracts\ReportUI;
+use Aldeebhasan\Panorama\Contracts\ReportContract;
 use Illuminate\Support\Str;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
 
-abstract class Report implements ReportUI
+abstract class Report implements ReportContract
 {
     use Conditionable;
     use Macroable;
@@ -71,7 +71,9 @@ abstract class Report implements ReportUI
      */
     public function cacheTtl(): int
     {
-        return (int) config('panorama.cache.ttl', 0);
+        $ttl = config('panorama.cache.ttl', 0);
+
+        return is_numeric($ttl) ? (int) $ttl : 0;
     }
 
     /**
@@ -79,7 +81,8 @@ abstract class Report implements ReportUI
      */
     public function cacheKey(): string
     {
-        $prefix = (string) config('panorama.cache.prefix', 'panorama');
+        $prefix = config('panorama.cache.prefix', 'panorama');
+        $prefix = is_string($prefix) ? $prefix : 'panorama';
 
         return sprintf('%s:%s:%s', $prefix, $this->key(), md5(serialize($this->filters)));
     }

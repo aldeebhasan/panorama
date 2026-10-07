@@ -2,14 +2,13 @@
 
 namespace Aldeebhasan\Panorama\Exceptions;
 
-use Aldeebhasan\Panorama\Contracts\ReportUI;
-use Exception;
+use Aldeebhasan\Panorama\Contracts\ReportContract;
 
-class ReportingException extends Exception
+class ReportingException extends PanoramaException
 {
     public static function invalidReport(string $report): self
     {
-        return new self(sprintf('[%s] must implement [%s].', $report, ReportUI::class));
+        return new self(sprintf('[%s] must implement [%s].', $report, ReportContract::class));
     }
 
     public static function reportNotFound(string $key): self

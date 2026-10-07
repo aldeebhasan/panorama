@@ -2,7 +2,7 @@
 
 namespace Aldeebhasan\Panorama\Contracts;
 
-interface ReportUI
+interface ReportContract
 {
     /**
      * The unique key used to resolve the report from the registry.
