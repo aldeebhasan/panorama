@@ -129,8 +129,15 @@ it('exposes the sql a plan compiles to', function (): void {
 
     $plan = app(Planner::class)->plan(Query::from('orders')->where('orders.id', 1));
 
-    expect($workspace->toSql($plan)->sql)
-        ->toBe('select * from "panorama_orders" as "orders" where "orders"."id" = ?');
+    // Quoted the way the connection under test quotes: the suite runs on
+    // SQLite by default and on MySQL and PostgreSQL in CI. Which character
+    // each engine gets is SqlCompilerTest's business.
+    $q = in_array(DB::connection()->getDriverName(), ['mysql', 'mariadb'], true) ? '`' : '"';
+
+    expect($workspace->toSql($plan)->sql)->toBe(sprintf(
+        'select * from %1$spanorama_orders%1$s as %1$sorders%1$s where %1$sorders%1$s.%1$sid%1$s = ?',
+        $q,
+    ));
 });
 
 it('cleans up when a dataset fails to load', function (): void {

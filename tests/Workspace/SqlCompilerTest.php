@@ -128,7 +128,8 @@ it('binds the source tag of a union', function (): void {
         loaded('shop_a_sales', 'shop_b_sales'),
     );
 
-    expect($compiled->sql)->toContain('select ? as "origin", * from "panorama_shop_a_sales"')
+    expect($compiled->sql)
+        ->toContain('select ? as "origin", "shop_a_sales".* from "panorama_shop_a_sales" as "shop_a_sales"')
         ->and($compiled->bindings)->toBe(['shop_a_sales', 'shop_b_sales']);
 });
 

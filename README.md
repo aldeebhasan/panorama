@@ -25,6 +25,8 @@ Datasets::from('orders')              // a MySQL table
 
 - PHP 8.2+
 - Laravel 11, 12 or 13
+- For the database workspace: SQLite, MySQL 8+, MariaDB 10.2+ or PostgreSQL. CI runs the suite against SQLite, MySQL
+  and PostgreSQL.
 
 ## Installation
 
@@ -342,6 +344,17 @@ Datasets::fake('crm_customers', [
 ```bash
 composer test
 ```
+
+The suite runs on SQLite in memory, so a clone needs nothing installed. `PANORAMA_DB` points it at a real server
+instead, which is how CI covers the engines whose SQL differs:
+
+```bash
+PANORAMA_DB=mysql PANORAMA_DB_USERNAME=root PANORAMA_DB_PASSWORD=secret composer test
+PANORAMA_DB=pgsql PANORAMA_DB_USERNAME=postgres PANORAMA_DB_PASSWORD=secret composer test
+```
+
+Accepted values are `sqlite`, `mysql`, `mariadb` and `pgsql`; `PANORAMA_DB_HOST`, `_PORT` and `_DATABASE` default to
+`127.0.0.1`, the engine's own port and `panorama`. The database has to exist, and every test drops the tables in it.
 
 ## Extending
 

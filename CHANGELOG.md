@@ -20,7 +20,8 @@ deliberately left out.
 - **Merging.** A fluent builder for joins, unions and aggregates, plus raw SQL. Join keys are inferred from declared
   relations; incompatible key types, mismatched union shapes and unknown datasets all fail before anything is fetched.
 - **Workspace.** `DatabaseWorkspace` loads datasets into temporary tables in a database the application already has and
-  merges them with SQL. A shared contract suite every future engine must pass.
+  merges them with SQL. A shared contract suite every future engine must pass, run against SQLite, MySQL and
+  PostgreSQL in CI.
 - **Reports.** `parameters()`, `query()`, `columns()` and `authorize()`. Parameters are validated against the declared
   rules; `authorize()` is enforced when a user is given.
 - **Rendering and delivery.** CSV and JSON, streamed; download responses and Storage disks.

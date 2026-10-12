@@ -155,7 +155,10 @@ final class SqlCompiler
             $columns = '*';
 
             if ($tag !== null) {
-                $columns = '? as ' . $this->quote($tag) . ', *';
+                // The star is qualified with the dataset alias, because MySQL
+                // accepts a bare `*` only as the first item of a select list
+                // and the tag column is now in front of it.
+                $columns = '? as ' . $this->quote($tag) . ', ' . $this->quote($dataset) . '.*';
                 $bindings[] = $dataset;
             }
 
