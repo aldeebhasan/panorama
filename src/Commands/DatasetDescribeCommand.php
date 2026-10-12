@@ -10,6 +10,8 @@ use Illuminate\Console\Command;
 
 class DatasetDescribeCommand extends Command
 {
+    use InteractsWithInput;
+
     protected $signature = 'datasets:describe
                             {name : The name of the dataset to describe}
                             {--sample=0 : Fetch this many rows and show them}
@@ -18,7 +20,7 @@ class DatasetDescribeCommand extends Command
 
     public function handle(DatasetRegistry $datasets): int
     {
-        $name = (string) $this->argument('name');
+        $name = $this->text('name');
 
         try {
             $dataset = $datasets->get($name);
@@ -43,9 +45,11 @@ class DatasetDescribeCommand extends Command
 
         $this->parameters($dataset->parameters());
 
-        return $this->option('sample') === '0' || $this->option('sample') === null
+        $sample = $this->flag('sample');
+
+        return $sample === null || $sample === '0'
             ? self::SUCCESS
-            : $this->sample($datasets, $name);
+            : $this->sample($datasets, $name, max(0, (int) $sample));
     }
 
     /**
@@ -107,10 +111,8 @@ class DatasetDescribeCommand extends Command
         }
     }
 
-    private function sample(DatasetRegistry $datasets, string $name): int
+    private function sample(DatasetRegistry $datasets, string $name, int $limit): int
     {
-        $limit = max(0, (int) $this->option('sample'));
-
         try {
             // A fresh instance, so the sample's violation log is its own.
             $dataset = $datasets->get($name);
@@ -172,8 +174,8 @@ class DatasetDescribeCommand extends Command
     private function filters(): array
     {
         $filters = [];
-        foreach ((array) $this->option('filter') as $filter) {
-            [$name, $value] = array_pad(explode('=', (string) $filter, 2), 2, '');
+        foreach ($this->strings('filter') as $filter) {
+            [$name, $value] = array_pad(explode('=', $filter, 2), 2, '');
             $filters[$name] = $value;
         }
 

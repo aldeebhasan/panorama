@@ -11,6 +11,8 @@ use Symfony\Component\Console\Attribute\AsCommand;
 #[AsCommand(name: 'reports:run')]
 class ReportRunCommand extends Command
 {
+    use InteractsWithInput;
+
     protected $signature = 'reports:run
                             {report : The key of the report to run}
                             {--param=* : Parameters to apply, as key=value pairs}
@@ -24,14 +26,11 @@ class ReportRunCommand extends Command
     {
         try {
             $rendered = $panorama
-                ->run((string) $this->argument('report'), $this->parameters())
-                ->render(is_string($format = $this->option('format')) ? $format : 'json');
+                ->run($this->text('report'), $this->parameters())
+                ->render($this->flag('format') ?? 'json');
 
             if ($this->option('store')) {
-                $path = $rendered->store(
-                    is_string($disk = $this->option('disk')) && $disk !== '' ? $disk : null,
-                    is_string($dir = $this->option('path')) && $dir !== '' ? $dir : null,
-                );
+                $path = $rendered->store($this->flag('disk'), $this->flag('path'));
 
                 $this->components->info(sprintf('Stored as [%s].', $path));
 
@@ -63,8 +62,8 @@ class ReportRunCommand extends Command
     private function parameters(): array
     {
         $parameters = [];
-        foreach ((array) $this->option('param') as $parameter) {
-            [$name, $value] = array_pad(explode('=', (string) $parameter, 2), 2, '');
+        foreach ($this->strings('param') as $parameter) {
+            [$name, $value] = array_pad(explode('=', $parameter, 2), 2, '');
             $parameters[$name] = $value;
         }
 
