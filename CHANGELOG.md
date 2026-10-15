@@ -2,7 +2,7 @@
 
 All notable changes to `panorama` will be documented in this file.
 
-## Unreleased
+## v0.2.0 - 2026-10-15
 
 Panorama now focuses on building reports. Datasets fetch their own rows, and reports merge them in PHP. This breaks the
 v0.1.0 API.
