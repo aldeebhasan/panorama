@@ -8,8 +8,8 @@ use Aldeebhasan\Panorama\Exceptions\RenderException;
  * The formats a report can be rendered to, by name.
  *
  * Built-ins are ordinary implementations: registering a renderer under an
- * existing name replaces it, which is how XLSX and PDF arrive later without
- * anything else changing.
+ * existing name replaces it, and a new format is one more registration with
+ * nothing else changing.
  */
 final class RendererRegistry
 {

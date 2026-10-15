@@ -116,7 +116,7 @@ final class ReportRun
         return new RenderedReport(
             $this->filename ?? $this->base() . '.' . $renderer->extension(),
             $renderer->contentType(),
-            fn(): Generator => $renderer->render($this->result(), $this->columns()),
+            fn(): Generator => $renderer->render($this->result(), $this->columns(), $this->report->name()),
             $this->download,
             $this->storage,
         );
@@ -136,6 +136,14 @@ final class ReportRun
     public function toJson(): RenderedReport
     {
         return $this->render('json');
+    }
+
+    /**
+     * @throws RenderException
+     */
+    public function toHtml(): RenderedReport
+    {
+        return $this->render('html');
     }
 
     private function base(): string

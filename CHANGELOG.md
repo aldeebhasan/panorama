@@ -7,6 +7,14 @@ All notable changes to `panorama` will be documented in this file.
 Panorama now focuses on building reports. Datasets fetch their own rows, and reports merge them in PHP. This breaks the
 v0.1.0 API.
 
+### Added
+
+- **HTML export.** `ReportRun::toHtml()` and `reports:run --format=html` render a standalone page: the report name as
+  its title, the table with display values, numeric columns right aligned, and a totals footer. It carries its own
+  stylesheet and escapes every value. `new HtmlRenderer(document: false)` renders the bare table to embed, and
+  `stylesheet:` replaces the built-in styles.
+- `Column::isNumeric()`, true for `money()`, `number()` and `percent()` columns.
+
 ### Changed
 
 - **Datasets fetch their own rows.** `fetch()` uses whatever the application already uses: `DB::table()->cursor()`,
@@ -23,6 +31,8 @@ v0.1.0 API.
 - `reports:list` shows the datasets each report reads instead of its engine. `datasets:list` and `datasets:describe`
   no longer show a connection.
 - `ReportRun::merge()` is now `ReportRun::query()`.
+- `RendererContract::render()` takes a third parameter, `string $title = ''`, the report's name. Custom renderers must
+  accept it.
 
 ### Removed
 

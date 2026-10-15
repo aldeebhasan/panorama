@@ -14,6 +14,7 @@ use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Query\Executor;
 use Aldeebhasan\Panorama\Render\CsvRenderer;
+use Aldeebhasan\Panorama\Render\HtmlRenderer;
 use Aldeebhasan\Panorama\Render\JsonRenderer;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
@@ -89,6 +90,7 @@ class PanoramaServiceProvider extends ServiceProvider
     {
         $this->app->singleton(RendererRegistry::class, fn() => new RendererRegistry([
             new CsvRenderer,
+            new HtmlRenderer,
             new JsonRenderer,
         ]));
 

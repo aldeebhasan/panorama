@@ -35,7 +35,7 @@ final class JsonRenderer implements RendererContract
         return 'application/json';
     }
 
-    public function render(Result $result, array $columns): Generator
+    public function render(Result $result, array $columns, string $title = ''): Generator
     {
         yield '[';
 

@@ -24,6 +24,7 @@ final class Column
     private int $decimals = 0;
     private ?string $dateFormat = null;
     private bool $percent = false;
+    private bool $numeric = false;
     private string $empty = '';
 
     private function __construct(public readonly string $name)
@@ -55,6 +56,7 @@ final class Column
     {
         $this->currency = $currency;
         $this->decimals = $decimals;
+        $this->numeric = true;
 
         return $this;
     }
@@ -62,6 +64,7 @@ final class Column
     public function number(int $decimals = 0): self
     {
         $this->decimals = $decimals;
+        $this->numeric = true;
 
         return $this;
     }
@@ -73,6 +76,7 @@ final class Column
     {
         $this->percent = true;
         $this->decimals = $decimals;
+        $this->numeric = true;
 
         return $this;
     }
@@ -148,6 +152,15 @@ final class Column
     public function currency(): ?string
     {
         return $this->currency;
+    }
+
+    /**
+     * Whether this column was declared as a number, money or a percentage, so
+     * a format that lays cells out can align it as one.
+     */
+    public function isNumeric(): bool
+    {
+        return $this->numeric;
     }
 
     /**

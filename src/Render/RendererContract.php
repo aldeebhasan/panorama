@@ -26,7 +26,8 @@ interface RendererContract
 
     /**
      * @param list<Column> $columns
+     * @param string $title the report's name, for the formats that show one
      * @return Generator<int,string>
      */
-    public function render(Result $result, array $columns): Generator;
+    public function render(Result $result, array $columns, string $title = ''): Generator;
 }

@@ -277,6 +277,7 @@ $run->get();                        // rows as an array
 $run->rows();                       // rows as a generator
 $run->toCsv()->download();          // a streamed response
 $run->toCsv()->store('s3');         // writes it, returns the path
+$run->toHtml()->download();         // a standalone page with the table
 $run->toJson()->contents();         // the document as a string
 ```
 
@@ -294,11 +295,21 @@ Panorama::run('revenue-by-customer', $filters, $request->user());
 `label()`, `money($currency, $decimals)`, `number($decimals)`, `percent($decimals)`, `date($format)`,
 `datetime($format)`, `whenEmpty($placeholder)`, `total()`, and `format(fn ($value, $row) => ...)` for anything else.
 
-A column carries two readings of the same cell, which is why one report renders correctly in both formats:
+A column carries two readings of the same cell, which is why one report renders correctly in every format:
 
 - **CSV** uses the display reading — a spreadsheet is opened by a person, so money, dates and percentages are formatted,
   and `total()` columns get a footer.
+- **HTML** uses the display reading too, as a standalone page with the table, a totals footer, and numeric columns
+  right aligned. It carries its own stylesheet and loads nothing, so it opens the same from a download, a disk or a
+  mail attachment. Every value is escaped.
 - **JSON** uses the raw reading — another system wants `1234.56`, not `"1,234.56 USD"`.
+
+To embed the bare table in a page of your own, or to style it yourself, register a configured renderer under `html`:
+
+```php
+app(RendererRegistry::class)->register(new HtmlRenderer(document: false));
+app(RendererRegistry::class)->register(new HtmlRenderer(stylesheet: file_get_contents(resource_path('css/report.css'))));
+```
 
 ## Console
 
@@ -306,7 +317,7 @@ A column carries two readings of the same cell, which is why one report renders 
 php artisan datasets:list                                   # datasets, keys and relations
 php artisan datasets:describe orders --sample=5              # schema, parameters and a sample of rows
 php artisan reports:list                                     # reports, their parameters and datasets
-php artisan reports:run revenue-by-customer --param=from=2026-01-01 --param=to=2026-09-30 --format=csv
+php artisan reports:run revenue-by-customer --param=from=2026-01-01 --param=to=2026-09-30 --format=html
 php artisan reports:run revenue-by-customer --store --disk=s3
 php artisan make:dataset CrmCustomers
 php artisan make:report RevenueByCustomer
@@ -335,14 +346,14 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 | To add | Implement | Register |
 | --- | --- | --- |
-| A format (XLSX, PDF, HTML) | `Render\RendererContract` | `RendererRegistry::register()` |
+| A format (XLSX, PDF) | `Render\RendererContract` | `RendererRegistry::register()` |
 | A destination (mail, Slack) | `Deliver\DestinationContract` | pass it to `RenderedReport::to()` |
 | A source | extend `Dataset\Dataset` | the `datasets` config |
 | A field type's casting | `Schema\Casts\Cast` | pass it to `Schema\Processor` |
 
 ## Roadmap
 
-Not yet shipped: XLSX / PDF / HTML renderers, mail and notification delivery, queued runs, scheduling, run history,
+Not yet shipped: XLSX and PDF renderers, mail and notification delivery, queued runs, scheduling, run history,
 snapshots and incremental sync, result caching.
 
 ## Changelog

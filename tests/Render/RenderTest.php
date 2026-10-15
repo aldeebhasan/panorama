@@ -4,6 +4,7 @@ use Aldeebhasan\Panorama\Dataset\Datasets;
 use Aldeebhasan\Panorama\Panorama;
 use Aldeebhasan\Panorama\Query\Result;
 use Aldeebhasan\Panorama\Render\CsvRenderer;
+use Aldeebhasan\Panorama\Render\HtmlRenderer;
 use Aldeebhasan\Panorama\Render\JsonRenderer;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Report\Column;
@@ -20,10 +21,10 @@ beforeEach(function (): void {
  * @param list<array<string,mixed>> $rows
  * @param list<Column> $columns
  */
-function rendered(object $renderer, array $rows, array $columns = []): string
+function rendered(object $renderer, array $rows, array $columns = [], string $title = ''): string
 {
     $out = '';
-    foreach ($renderer->render(Result::of($rows), $columns) as $chunk) {
+    foreach ($renderer->render(Result::of($rows), $columns, $title) as $chunk) {
         $out .= $chunk;
     }
 
@@ -131,6 +132,89 @@ it('separates rows with commas and nothing else', function (): void {
 
 /*
 |--------------------------------------------------------------------------
+| html
+|--------------------------------------------------------------------------
+*/
+
+it('writes a standalone page titled after the report', function (): void {
+    $html = rendered(new HtmlRenderer, [['name' => 'Ada']], [Column::make('name')->label('Customer')], 'Revenue');
+
+    expect($html)->toStartWith('<!doctype html>')
+        ->toContain('<meta charset="utf-8">')
+        ->toContain('<title>Revenue</title>')
+        ->toContain('<h1>Revenue</h1>')
+        ->toContain('<th scope="col">Customer</th>')
+        ->toContain('<tr><td>Ada</td></tr>')
+        ->toEndWith("</body>\n</html>\n");
+});
+
+it('writes display values and right aligns the numeric columns', function (): void {
+    $html = rendered(new HtmlRenderer, [['name' => 'Ada', 'revenue' => 1234.5]], [
+        Column::make('name'),
+        Column::make('revenue')->money('USD'),
+    ]);
+
+    expect($html)->toContain('<th class="numeric" scope="col">Revenue</th>')
+        ->toContain('<td>Ada</td><td class="numeric">1,234.50 USD</td>');
+});
+
+it('escapes every value', function (): void {
+    $html = rendered(
+        new HtmlRenderer,
+        [['note' => '<script>alert("x")</script> & \'more\'']],
+        [Column::make('note')->label('<b>Note</b>')],
+        '<i>Title</i>',
+    );
+
+    expect($html)->not->toContain('<script>')
+        ->not->toContain('<b>')
+        ->not->toContain('<i>')
+        ->toContain('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt; &amp; &apos;more&apos;')
+        ->toContain('<title>&lt;i&gt;Title&lt;/i&gt;</title>');
+});
+
+it('writes a totals footer', function (): void {
+    $html = rendered(new HtmlRenderer, [['name' => 'Ada', 'n' => 2], ['name' => 'Linus', 'n' => 3]], [
+        Column::make('name'),
+        Column::make('n')->number()->total(),
+    ]);
+
+    expect($html)->toContain('<tfoot><tr><td>Total</td><td class="numeric">5</td></tr></tfoot>');
+});
+
+it('says so when there are no rows', function (): void {
+    $html = rendered(new HtmlRenderer, [], [Column::make('a'), Column::make('b')]);
+
+    expect($html)->toContain('<tr><td class="empty" colspan="2">No rows</td></tr>')
+        ->not->toContain('<tfoot>');
+});
+
+it('falls back to the result columns and a generic title', function (): void {
+    $html = rendered(new HtmlRenderer, [['customer_id' => 'c-1']]);
+
+    expect($html)->toContain('<title>Report</title>')
+        ->not->toContain('<h1>')
+        ->toContain('<th scope="col">Customer Id</th>');
+});
+
+it('writes a bare table to embed', function (): void {
+    $html = rendered(new HtmlRenderer(document: false), [['a' => 1]], title: 'Ignored');
+
+    expect($html)->toStartWith('<div class="panorama-table-wrap"><table class="panorama-report">')
+        ->toEndWith("</table></div>\n")
+        ->not->toContain('<html')
+        ->not->toContain('Ignored');
+});
+
+it('uses a given stylesheet instead of its own', function (): void {
+    $html = rendered(new HtmlRenderer(stylesheet: 'td { color: red; }'), [['a' => 1]]);
+
+    expect($html)->toContain('<style>td { color: red; }</style>')
+        ->not->toContain('tabular-nums');
+});
+
+/*
+|--------------------------------------------------------------------------
 | the registry
 |--------------------------------------------------------------------------
 */
@@ -138,7 +222,7 @@ it('separates rows with commas and nothing else', function (): void {
 it('serves the built in formats', function (): void {
     $registry = app(RendererRegistry::class);
 
-    expect($registry->formats())->toEqualCanonicalizing(['csv', 'json'])
+    expect($registry->formats())->toEqualCanonicalizing(['csv', 'html', 'json'])
         ->and($registry->has('CSV'))->toBeTrue()
         ->and($registry->get('json'))->toBeInstanceOf(JsonRenderer::class);
 });
@@ -150,7 +234,7 @@ it('lets a renderer be replaced under its own name', function (): void {
     $registry->register($replacement);
 
     expect($registry->get('csv'))->toBe($replacement)
-        ->and($registry->formats())->toHaveCount(2);
+        ->and($registry->formats())->toHaveCount(3);
 });
 
 /*
@@ -183,6 +267,19 @@ it('renders the acceptance report as json', function (): void {
         ->and($json->contentType())->toBe('application/json')
         ->and($rows)->toHaveCount(2)
         ->and($rows[0]['name'])->toBe('Ada');
+});
+
+it('renders the acceptance report as html', function (): void {
+    $html = app(Panorama::class)
+        ->run('revenue-by-customer', ['from' => '2026-01-01', 'to' => '2026-12-31'])
+        ->toHtml();
+
+    expect($html->filename())->toBe('revenue-by-customer.html')
+        ->and($html->contentType())->toBe('text/html; charset=UTF-8')
+        ->and($html->contents())->toContain('<title>Revenue by Customer</title>')
+        ->toContain('<td>Ada</td><td class="numeric">49.99 USD</td>')
+        ->toContain('<td>Linus</td><td class="numeric">5.50 USD</td>')
+        ->toContain('<td>Total</td><td class="numeric">55.49 USD</td>');
 });
 
 it('lets the file be named', function (): void {

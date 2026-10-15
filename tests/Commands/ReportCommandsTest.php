@@ -58,6 +58,18 @@ it('runs a report as csv', function (): void {
         ->toContain('Total,"55.49 USD"');
 });
 
+it('runs a report as html', function (): void {
+    [$status, $output] = console('reports:run', [
+        'report' => 'revenue-by-customer',
+        '--param' => ['from=2026-01-01', 'to=2026-12-31'],
+        '--format' => 'html',
+    ]);
+
+    expect($status)->toBe(0)
+        ->and($output)->toContain('<title>Revenue by Customer</title>')
+        ->toContain('<td>Total</td><td class="numeric">55.49 USD</td>');
+});
+
 it('stores a report instead of printing it', function (): void {
     Storage::fake('reports');
 

@@ -186,4 +186,4 @@ it('streams the rows', function (): void {
 
 it('refuses a format it has no renderer for', function (): void {
     app(Panorama::class)->run('all-orders')->render('xlsx');
-})->throws(RenderException::class, 'No renderer is registered for [xlsx]. Available formats are [csv, json]');
+})->throws(RenderException::class, 'No renderer is registered for [xlsx]. Available formats are [csv, html, json]');

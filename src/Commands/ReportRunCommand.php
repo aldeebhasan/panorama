@@ -16,7 +16,7 @@ class ReportRunCommand extends Command
     protected $signature = 'reports:run
                             {report : The key of the report to run}
                             {--param=* : Parameters to apply, as key=value pairs}
-                            {--format=json : The format to render, csv or json}
+                            {--format=json : The format to render: csv, html or json}
                             {--store : Write the report to the configured disk instead of printing it}
                             {--disk= : The disk to store it on}
                             {--path= : The directory to store it in}';

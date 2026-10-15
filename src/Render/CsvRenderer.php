@@ -42,7 +42,7 @@ final class CsvRenderer implements RendererContract
         return 'text/csv';
     }
 
-    public function render(Result $result, array $columns): Generator
+    public function render(Result $result, array $columns, string $title = ''): Generator
     {
         if ($this->bom) {
             // Excel needs this to read UTF-8 correctly.
@@ -53,20 +53,16 @@ final class CsvRenderer implements RendererContract
 
         yield $this->line(array_map(fn(Column $column): string => $column->heading(), $columns));
 
-        $totals = [];
+        $totals = new Totals($columns);
 
         foreach ($result->rows() as $row) {
-            foreach ($columns as $index => $column) {
-                if ($column->totalled()) {
-                    $totals[$index] = ($totals[$index] ?? 0.0) + ($column->numeric($row) ?? 0.0);
-                }
-            }
+            $totals->add($row);
 
             yield $this->line(array_map(fn(Column $column): string => $column->display($row), $columns));
         }
 
-        if ($totals !== []) {
-            yield $this->line($this->footer($columns, $totals));
+        if ($totals->any()) {
+            yield $this->line($totals->footer());
         }
     }
 
@@ -79,24 +75,6 @@ final class CsvRenderer implements RendererContract
     private function fromResult(Result $result): array
     {
         return array_map(Column::make(...), $result->columns());
-    }
-
-    /**
-     * @param list<Column> $columns
-     * @param array<int,float> $totals
-     * @return list<string>
-     */
-    private function footer(array $columns, array $totals): array
-    {
-        $footer = [];
-
-        foreach ($columns as $index => $column) {
-            $footer[] = isset($totals[$index])
-                ? $column->display([$column->name => $totals[$index]])
-                : ($index === 0 ? 'Total' : '');
-        }
-
-        return $footer;
     }
 
     /**
