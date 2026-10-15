@@ -13,7 +13,6 @@ use Aldeebhasan\Panorama\Schema\Schema;
 class ShopCSales extends Dataset
 {
     public string $name = 'shop_c_sales';
-    public string $connection = '';
 
     public function fetch(Params $params): iterable
     {

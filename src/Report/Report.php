@@ -3,7 +3,7 @@
 namespace Aldeebhasan\Panorama\Report;
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 
 /**
  * The base class a report extends: name a few things, implement one method.
@@ -23,12 +23,7 @@ abstract class Report implements ReportContract
      */
     protected string $name = '';
 
-    /**
-     * The workspace engine to run on, null for the configured default.
-     */
-    protected ?string $engine = null;
-
-    abstract public function query(Datasets $datasets): Merge;
+    abstract public function query(Datasets $datasets): DatasetQuery;
 
     public function key(): string
     {
@@ -65,11 +60,6 @@ abstract class Report implements ReportContract
     public function authorize(mixed $user = null): bool
     {
         return true;
-    }
-
-    public function engine(): ?string
-    {
-        return $this->engine;
     }
 
     /**

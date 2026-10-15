@@ -33,7 +33,6 @@ class DatasetDescribeCommand extends Command
         $schema = $dataset->schema();
 
         $this->components->twoColumnDetail('<fg=green;options=bold>Dataset</>', $dataset->name());
-        $this->components->twoColumnDetail('Connection', $dataset->connectionName() ?: '—');
         $this->components->twoColumnDetail('Primary key', implode(', ', $schema->keys()) ?: '—');
         $this->components->twoColumnDetail('On violation', $schema->policy()->value);
         $this->newLine();

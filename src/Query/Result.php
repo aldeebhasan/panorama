@@ -17,8 +17,8 @@ use Traversable;
  *
  * A result may also own the lifetime of whatever produced it, through
  * {@see whenDone()}: the callback fires once the rows run out, when the
- * generator is abandoned, or when the result is destroyed. That is how a
- * workspace's tables survive exactly as long as the rows are being read.
+ * generator is abandoned, or when the result is destroyed, so whatever the rows
+ * are read from lives exactly as long as they are being read.
  *
  * Never wrap one result in another. Both would peek a row to learn their
  * columns, and peeking twice through a delegated generator silently drops a

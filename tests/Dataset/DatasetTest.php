@@ -1,10 +1,9 @@
 <?php
 
-use Aldeebhasan\Panorama\Connection\ArrayConnection;
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
+use Aldeebhasan\Panorama\Dataset\FakeDataset;
 use Aldeebhasan\Panorama\Dataset\Params;
-use Aldeebhasan\Panorama\Exceptions\ConnectionException;
 use Aldeebhasan\Panorama\Exceptions\SchemaViolation;
 use Aldeebhasan\Panorama\Exceptions\SourceUnavailable;
 use Aldeebhasan\Panorama\Schema\Schema;
@@ -42,11 +41,8 @@ it('derives the dataset name from the class when none is declared', function ():
         ->and($dataset->name())->toBeString();
 });
 
-it('keeps the declared name and connection', function (): void {
-    $orders = new Orders;
-
-    expect($orders->name())->toBe('orders')
-        ->and($orders->connectionName())->toBe('fixtures');
+it('keeps the declared name', function (): void {
+    expect((new Orders)->name())->toBe('orders');
 });
 
 /*
@@ -131,22 +127,12 @@ it('reads rows one at a time', function (): void {
 });
 
 it('exposes the violation log of its own run', function (): void {
-    $connection = new ArrayConnection('fixtures', [
-        'orders' => [
-            ['id' => 1, 'customer_id' => 'c-1', 'amount' => 'not a number', 'created_at' => '2026-01-15'],
-            ['id' => 2, 'customer_id' => 'c-2', 'amount' => '5.50', 'created_at' => '2026-02-20'],
-        ],
+    $dataset = new FakeDataset('orders', (new Orders)->schema()->skipOnViolation(), [
+        ['id' => 1, 'customer_id' => 'c-1', 'amount' => 'not a number', 'created_at' => '2026-01-15'],
+        ['id' => 2, 'customer_id' => 'c-2', 'amount' => '5.50', 'created_at' => '2026-02-20'],
     ]);
 
-    $dataset = new class extends Orders
-    {
-        public function schema(): Schema
-        {
-            return parent::schema()->skipOnViolation();
-        }
-    };
-
-    $rows = iterator_to_array($dataset->withConnection($connection)->rows(Params::make()));
+    $rows = iterator_to_array($dataset->rows(Params::make()));
 
     expect($rows)->toHaveCount(1)
         ->and($dataset->log()->skipped())->toBe(1)
@@ -158,26 +144,6 @@ it('exposes the violation log of its own run', function (): void {
 | failure modes
 |--------------------------------------------------------------------------
 */
-
-it('fails plainly when no connection is attached', function (): void {
-    iterator_to_array((new Orders)->rows(Params::make()));
-})->throws(ConnectionException::class, 'Dataset [orders] has no connection');
-
-it('says what kind of connection it got when the driver is wrong', function (): void {
-    $orders = (new Orders)->withConnection(new ArrayConnection('fixtures'));
-    $wrong = new class extends Orders
-    {
-        public function fetch(Params $params): iterable
-        {
-            return $this->http()->get('/orders');
-        }
-    };
-
-    iterator_to_array($wrong->withConnection($orders->connection())->rows(Params::make()));
-})->throws(
-    ConnectionException::class,
-    'Dataset [orders] asked for a http connection but [fixtures] is a array connection.',
-);
 
 it('wraps a failing source in source unavailable', function (): void {
     $dataset = new class extends Dataset
@@ -209,11 +175,11 @@ it('wraps a failing source in source unavailable', function (): void {
 });
 
 it('lets a schema violation through rather than relabelling it', function (): void {
-    $connection = new ArrayConnection('fixtures', [
-        'orders' => [['id' => 'abc', 'customer_id' => 'c-1', 'amount' => '1.00', 'created_at' => '2026-01-15']],
+    $dataset = new FakeDataset('orders', (new Orders)->schema(), [
+        ['id' => 'abc', 'customer_id' => 'c-1', 'amount' => '1.00', 'created_at' => '2026-01-15'],
     ]);
 
-    iterator_to_array((new Orders)->withConnection($connection)->rows(Params::make()));
+    iterator_to_array($dataset->rows(Params::make()));
 })->throws(SchemaViolation::class, 'Dataset [orders] field [id] on row 1');
 
 /*
@@ -222,7 +188,7 @@ it('lets a schema violation through rather than relabelling it', function (): vo
 |--------------------------------------------------------------------------
 */
 
-it('reads a database source through the application connection', function (): void {
+it('reads a database source through the application database', function (): void {
     $this->createOrdersTable();
 
     $rows = iterator_to_array(datasets()->get('db_orders')->rows(Params::make()));

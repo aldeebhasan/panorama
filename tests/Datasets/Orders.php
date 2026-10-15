@@ -5,6 +5,7 @@ namespace Aldeebhasan\Panorama\Tests\Datasets;
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Schema\Schema;
+use Aldeebhasan\Panorama\Tests\TestCase;
 
 /**
  * Fixture rows standing in for an application table, so the dataset layer can
@@ -13,7 +14,6 @@ use Aldeebhasan\Panorama\Schema\Schema;
 class Orders extends Dataset
 {
     public string $name = 'orders';
-    public string $connection = 'fixtures';
 
     public function parameters(): array
     {
@@ -24,9 +24,9 @@ class Orders extends Dataset
     {
         $from = $params->string('from');
 
-        foreach ($this->fixtures()->rows('orders') as $row) {
+        foreach (TestCase::ORDERS as $row) {
             // Pushdown: the filter narrows the fetch, not the result.
-            if ($from !== null && is_array($row) && (string) $row['created_at'] < $from) {
+            if ($from !== null && $row['created_at'] < $from) {
                 continue;
             }
 

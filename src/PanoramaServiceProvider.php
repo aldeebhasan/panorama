@@ -8,23 +8,18 @@ use Aldeebhasan\Panorama\Commands\MakeDatasetCommand;
 use Aldeebhasan\Panorama\Commands\MakeReportCommand;
 use Aldeebhasan\Panorama\Commands\ReportListCommand;
 use Aldeebhasan\Panorama\Commands\ReportRunCommand;
-use Aldeebhasan\Panorama\Connection\ConnectionRegistry;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
 use Aldeebhasan\Panorama\Dataset\Datasets;
 use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
-use Aldeebhasan\Panorama\Query\Planner;
+use Aldeebhasan\Panorama\Query\Executor;
 use Aldeebhasan\Panorama\Render\CsvRenderer;
 use Aldeebhasan\Panorama\Render\JsonRenderer;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
-use Aldeebhasan\Panorama\Workspace\MergeRunner;
-use Aldeebhasan\Panorama\Workspace\WorkspaceFactory;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
-use Illuminate\Database\ConnectionResolverInterface;
-use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 
 class PanoramaServiceProvider extends ServiceProvider
@@ -46,8 +41,7 @@ class PanoramaServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__ . '/../config/panorama.php', 'panorama');
 
-        $this->registerSources();
-        $this->registerWorkspaces();
+        $this->registerDatasets();
         $this->registerReporting();
 
         if ($this->app->runningInConsole()) {
@@ -63,48 +57,28 @@ class PanoramaServiceProvider extends ServiceProvider
     }
 
     /**
-     * Connections and datasets: where the data is and what shape it has.
+     * Datasets, and the queries reports build over them.
      */
-    private function registerSources(): void
+    private function registerDatasets(): void
     {
-        $this->app->singleton(ConnectionRegistry::class, fn(Application $app) => new ConnectionRegistry(
-            $this->section('panorama.connections'),
-            $app->make(ConnectionResolverInterface::class),
-            $app->make(HttpFactory::class),
+        // Scoped rather than shared: the registry holds a container reference,
+        // and under Octane a singleton would outlive the request that built it.
+        // Everything holding the registry is scoped with it.
+        $this->app->scoped(DatasetRegistry::class, fn(Application $app) => $this->datasets(
+            new DatasetRegistry($app),
         ));
 
-        $this->app->singleton(DatasetRegistry::class, fn(Application $app) => $this->datasets(
-            new DatasetRegistry($app->make(ConnectionRegistry::class), $app),
+        $this->app->scoped(Executor::class, fn(Application $app) => new Executor(
+            $app->make(DatasetRegistry::class),
+        ));
+
+        $this->app->scoped(Datasets::class, fn(Application $app) => new Datasets(
+            $app->make(DatasetRegistry::class),
+            $app->make(Executor::class),
         ));
 
         $this->app->singleton(ParameterValidator::class, fn(Application $app) => new ParameterValidator(
             $app->make(ValidationFactory::class),
-        ));
-    }
-
-    /**
-     * The engine datasets are merged in.
-     */
-    private function registerWorkspaces(): void
-    {
-        $this->app->singleton(Planner::class, fn(Application $app) => new Planner(
-            $app->make(DatasetRegistry::class),
-        ));
-
-        $this->app->singleton(WorkspaceFactory::class, fn(Application $app) => new WorkspaceFactory(
-            $this->section('panorama.workspaces'),
-            $app->make(ConnectionResolverInterface::class),
-            $this->string('panorama.workspace', 'database'),
-        ));
-
-        $this->app->singleton(MergeRunner::class, fn(Application $app) => new MergeRunner(
-            $app->make(Planner::class),
-            $app->make(WorkspaceFactory::class),
-        ));
-
-        $this->app->singleton(Datasets::class, fn(Application $app) => new Datasets(
-            $app->make(DatasetRegistry::class),
-            $app->make(MergeRunner::class),
         ));
     }
 

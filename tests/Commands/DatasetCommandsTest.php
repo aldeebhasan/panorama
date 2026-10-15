@@ -3,13 +3,13 @@
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
 use Illuminate\Support\Facades\Http;
 
-it('lists the datasets with their connections and relations', function (): void {
+it('lists the datasets with their keys and relations', function (): void {
     [$status, $output] = console('datasets:list');
 
     expect($status)->toBe(0)
         ->and($output)->toContain('orders')
-        ->toContain('fixtures')
-        ->toContain('crm_api')
+        ->toContain('crm_customers')
+        ->not->toContain('Connection')
         ->toContain('customer_id → crm_customers.id');
 });
 
@@ -27,8 +27,7 @@ it('describes a dataset schema', function (): void {
     [$status, $output] = console('datasets:describe', ['name' => 'orders']);
 
     expect($status)->toBe(0)
-        ->and($output)->toContain('fixtures')
-        ->toContain('Primary key')
+        ->and($output)->toContain('Primary key')
         ->toContain('fail')
         ->toContain('scale 2, USD')
         ->toContain('→ crm_customers.id')
@@ -100,7 +99,7 @@ it('generates a dataset class', function (): void {
             ->toContain('namespace App\Reports\Datasets;')
             ->toContain('class CrmContacts extends Dataset')
             ->toContain("public string \$name = 'crm_contacts';")
-            ->toContain("->table('crm_contacts')");
+            ->toContain("DB::table('crm_contacts')");
     } finally {
         if (file_exists($path)) {
             unlink($path);

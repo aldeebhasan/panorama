@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 class DatasetListCommand extends Command
 {
     protected $signature = 'datasets:list';
-    protected $description = 'List the registered datasets, their connections and their relations';
+    protected $description = 'List the registered datasets, their keys and their relations';
 
     public function handle(DatasetRegistry $datasets): int
     {
@@ -33,17 +33,16 @@ class DatasetListCommand extends Command
 
                 $rows[] = [
                     $name,
-                    $dataset->connectionName() ?: '—',
                     count($schema->fields()),
                     implode(', ', $schema->keys()) ?: '—',
                     $relations === [] ? '—' : implode(', ', $relations),
                 ];
             } catch (PanoramaException $e) {
-                $rows[] = [$name, '—', '—', '—', '<error>' . $e->getMessage() . '</error>'];
+                $rows[] = [$name, '—', '—', '<error>' . $e->getMessage() . '</error>'];
             }
         }
 
-        $this->table(['Dataset', 'Connection', 'Fields', 'Key', 'Relations'], $rows);
+        $this->table(['Dataset', 'Fields', 'Key', 'Relations'], $rows);
 
         return self::SUCCESS;
     }

@@ -5,8 +5,8 @@ namespace Aldeebhasan\Panorama\Query;
 /**
  * One filter in a where or having clause.
  *
- * Values are always carried separately from the SQL so they can be bound, and
- * the operator is checked against a whitelist when the condition is built.
+ * The operator is checked against a whitelist when the condition is built, and
+ * {@see Compare::predicate()} turns it into the test a value has to pass.
  */
 final readonly class Condition
 {
@@ -17,10 +17,9 @@ final readonly class Condition
      */
     private function __construct(
         public string $kind,
-        public string $column = '',
+        public string $column,
         public string $operator = '=',
         public array $values = [],
-        public string $sql = '',
     ) {
     }
 
@@ -45,13 +44,5 @@ final readonly class Condition
     public static function null(string $column, bool $not = false): self
     {
         return new self($not ? 'notNull' : 'null', $column);
-    }
-
-    /**
-     * @param list<mixed> $bindings
-     */
-    public static function raw(string $sql, array $bindings = []): self
-    {
-        return new self('raw', values: array_values($bindings), sql: $sql);
     }
 }

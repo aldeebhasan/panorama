@@ -18,10 +18,8 @@ arch('it will not use debugging functions')
 arch('the core stages never reach for the framework')
     ->expect([
         'Aldeebhasan\Panorama\Schema',
-        'Aldeebhasan\Panorama\Connection',
         'Aldeebhasan\Panorama\Dataset',
         'Aldeebhasan\Panorama\Query',
-        'Aldeebhasan\Panorama\Workspace',
         'Aldeebhasan\Panorama\Report',
         'Aldeebhasan\Panorama\Render',
         'Aldeebhasan\Panorama\Deliver',

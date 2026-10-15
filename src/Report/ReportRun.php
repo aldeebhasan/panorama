@@ -6,17 +6,17 @@ use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\RenderException;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Query\Result;
 use Aldeebhasan\Panorama\Render\RenderedReport;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Generator;
 
 /**
- * One run of one report: its validated parameters, the merge it will execute,
+ * One run of one report: its validated parameters, the query it will execute,
  * and the formats it can be turned into.
  *
- * Nothing has happened yet when a run is handed back. The merge executes when
+ * Nothing has happened yet when a run is handed back. The query executes when
  * the rows are first asked for, which is what lets a caller choose the format
  * and the destination afterwards.
  */
@@ -28,7 +28,7 @@ final class ReportRun
     public function __construct(
         private readonly ReportContract $report,
         private readonly Params $params,
-        private readonly Merge $merge,
+        private readonly DatasetQuery $query,
         private readonly RendererRegistry $renderers,
         private readonly DownloadDestination $download,
         private readonly StorageDestination $storage,
@@ -45,9 +45,9 @@ final class ReportRun
         return $this->params;
     }
 
-    public function merge(): Merge
+    public function query(): DatasetQuery
     {
-        return $this->merge;
+        return $this->query;
     }
 
     /**
@@ -55,7 +55,7 @@ final class ReportRun
      */
     public function result(): Result
     {
-        return $this->result ??= $this->merge->result();
+        return $this->result ??= $this->query->result();
     }
 
     /**

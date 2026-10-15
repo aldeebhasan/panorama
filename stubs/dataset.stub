@@ -5,18 +5,14 @@ namespace {{ namespace }};
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Schema\Schema;
+use Illuminate\Support\Facades\DB;
 
 class {{ class }} extends Dataset
 {
     /**
-     * The name reports and merges refer to this dataset by.
+     * The name reports and queries refer to this dataset by.
      */
     public string $name = '{{ datasetName }}';
-
-    /**
-     * The connection in config/panorama.php this dataset reads from.
-     */
-    public string $connection = 'default';
 
     /**
      * The filters this dataset accepts. Leave empty to receive them all.
@@ -31,13 +27,14 @@ class {{ class }} extends Dataset
     }
 
     /**
-     * Pull the raw rows, pushing filters down to the source where it can
-     * apply them itself.
+     * Pull the raw rows from wherever they live: a query builder cursor, an
+     * HTTP client, an Eloquent model. Push filters down to the source where
+     * it can apply them itself, and return a generator or a cursor rather
+     * than an array, so a large source is never held in memory.
      */
     public function fetch(Params $params): iterable
     {
-        return $this->query()
-            ->table('{{ datasetName }}')
+        return DB::table('{{ datasetName }}')
             ->cursor();
     }
 

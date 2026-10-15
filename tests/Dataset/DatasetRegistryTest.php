@@ -1,7 +1,5 @@
 <?php
 
-use Aldeebhasan\Panorama\Connection\ArrayConnection;
-use Aldeebhasan\Panorama\Connection\ConnectionRegistry;
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
 use Aldeebhasan\Panorama\Dataset\FakeDataset;
@@ -34,14 +32,7 @@ it('hands out a fresh instance per lookup', function (): void {
     expect($registry->get('orders'))->not->toBe($registry->get('orders'));
 });
 
-it('attaches the connection the dataset named', function (): void {
-    $dataset = app(DatasetRegistry::class)->get('orders');
-
-    expect($dataset->connection())->toBeInstanceOf(ArrayConnection::class)
-        ->and($dataset->connection()->name())->toBe('fixtures');
-});
-
-it('leaves a dataset that names no connection alone', function (): void {
+it('registers a dataset that serves its own rows', function (): void {
     $registry = app(DatasetRegistry::class);
     $registry->register(new FakeDataset('standalone', Schema::make()->int('id'), [['id' => 1]]));
 
@@ -68,7 +59,7 @@ it('rejects a class that is not a dataset', function (): void {
 })->throws(UnknownDataset::class, 'does not extend');
 
 it('discovers datasets in a directory', function (): void {
-    $registry = new DatasetRegistry(app(ConnectionRegistry::class), app());
+    $registry = new DatasetRegistry(app());
 
     $registry->discover(__DIR__ . '/../Datasets', 'Aldeebhasan\Panorama\Tests\Datasets');
 
@@ -77,7 +68,7 @@ it('discovers datasets in a directory', function (): void {
 });
 
 it('ignores a discovery path that does not exist', function (): void {
-    $registry = new DatasetRegistry(app(ConnectionRegistry::class), app());
+    $registry = new DatasetRegistry(app());
 
     $registry->discover('/nope/not/here', 'Nope');
 

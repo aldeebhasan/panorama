@@ -3,10 +3,10 @@
 namespace Aldeebhasan\Panorama\Report;
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 
 /**
- * A report: the parameters it accepts, the query it runs over datasets, and
+ * A report: the parameters it accepts, the query it builds over datasets, and
  * how its columns are presented.
  *
  * Note what is not here. A report does not say how it is rendered or where it
@@ -33,9 +33,10 @@ interface ReportContract
     public function parameters(): array;
 
     /**
-     * The merge this report is.
+     * The query over datasets this report is: which it reads, and how they
+     * are joined, filtered, grouped and ordered.
      */
-    public function query(Datasets $datasets): Merge;
+    public function query(Datasets $datasets): DatasetQuery;
 
     /**
      * How the columns are labelled and formatted. An empty list renders

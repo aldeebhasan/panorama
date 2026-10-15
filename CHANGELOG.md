@@ -4,6 +4,37 @@ All notable changes to `panorama` will be documented in this file.
 
 ## Unreleased
 
+Panorama now focuses on building reports. Datasets fetch their own rows, and reports merge them in PHP. This breaks the
+v0.1.0 API.
+
+### Changed
+
+- **Datasets fetch their own rows.** `fetch()` uses whatever the application already uses: `DB::table()->cursor()`,
+  the HTTP client, an Eloquent model. The `$connection` property and the `query()`, `http()` and `fixtures()` helpers
+  are gone.
+- **Reports merge in PHP.** `Report::query()` returns a `Query\DatasetQuery`: `join`, `leftJoin`, `union` and
+  `tagSource`, the `where` family, `filter(Closure)`, `groupBy` and `aggregate` with `Query\Aggregate`, `having`,
+  `select`, `orderBy`, `limit` and `offset`. Join keys may be named in either order, and are still inferred from declared
+  relations. A grouped query outputs its group columns and aggregates, replacing `sum(...) as ...` select expressions.
+- Decimals are summed exactly at their declared scale: revenue of `19.99 + 30.00` is now `49.99`, not
+  `49.989999999999995`.
+- With no `select`, a field name two joined datasets share comes out as `dataset.field` for both, instead of one
+  overwriting the other.
+- `reports:list` shows the datasets each report reads instead of its engine. `datasets:list` and `datasets:describe`
+  no longer show a connection.
+- `ReportRun::merge()` is now `ReportRun::query()`.
+
+### Removed
+
+- Connections: the `connections` config, `ConnectionRegistry`, and the `database`, `http` and `array` drivers.
+- Workspaces: the `workspace` and `workspaces` config, `DatabaseWorkspace`, `SqlCompiler`, `MergeRunner`,
+  `WorkspaceFactory` and `Report::$engine`. No temporary tables are created any more.
+- Raw SQL: `Datasets::sql()`, `whereRaw()` and `havingRaw()`. Use `filter()` for tests the conditions cannot express.
+- `Query\Query`, `Query\Merge`, `Query\Planner`, `ConnectionException` and `WorkspaceException`.
+- The MySQL and PostgreSQL CI legs, since the package no longer generates SQL.
+
+## v0.1.0 - 2026-10-13
+
 Initial implementation of the design in `docs/`. See `docs/roadmap.md` for the scope of this release and what was
 deliberately left out.
 

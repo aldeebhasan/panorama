@@ -3,7 +3,7 @@
 namespace Aldeebhasan\Panorama\Exceptions;
 
 /**
- * Thrown when a query is described in a way that cannot be compiled.
+ * Thrown when a query is described in a way that cannot be run.
  */
 class QueryException extends PanoramaException
 {
@@ -20,7 +20,7 @@ class QueryException extends PanoramaException
     public static function malformedColumn(string $column): self
     {
         return new self(sprintf(
-            '[%s] is not a valid column. Write [field] or [dataset.field]; for anything else use a raw expression.',
+            '[%s] is not a valid column. Write [field] or [dataset.field], optionally followed by [as alias].',
             $column,
         ));
     }
@@ -33,16 +33,20 @@ class QueryException extends PanoramaException
         ));
     }
 
-    public static function nothingToQuery(): self
+    public static function datasetJoinedTwice(): self
     {
-        return new self('The query names no dataset to read from.');
+        return new self('A dataset can appear in a query only once.');
     }
 
-    public static function rawQueryWithoutDatasets(): self
+    public static function joinKeysOutsideJoin(string $dataset, string $localKey, string $foreignKey): self
     {
-        return new self(
-            'This raw query mentions no registered dataset. Declare them with using(), so only those are loaded.',
-        );
+        return new self(sprintf(
+            'The join on [%s] is keyed [%s = %s]. One key must name [%s] and the other a dataset already in the query.',
+            $dataset,
+            $localKey,
+            $foreignKey,
+            $dataset,
+        ));
     }
 
     public static function unknownField(string $dataset, string $field): self
@@ -50,20 +54,46 @@ class QueryException extends PanoramaException
         return new self(sprintf('The dataset [%s] declares no field named [%s].', $dataset, $field));
     }
 
-    public static function recursiveRawQuery(): self
-    {
-        return new self(
-            'A raw query cannot open with [with recursive]: the datasets are themselves injected as '
-            . 'common table expressions. Move the recursion into a subquery.',
-        );
-    }
-
-    public static function datasetNotLoaded(string $dataset): self
+    /**
+     * @param list<string> $datasets
+     */
+    public static function notInQuery(string $dataset, array $datasets): self
     {
         return new self(sprintf(
-            'The dataset [%s] was never loaded into the workspace, so the query cannot reference it.',
+            'The dataset [%s] is not part of this query, which reads [%s]. Join it first.',
             $dataset,
+            implode(', ', $datasets),
         ));
+    }
+
+    /**
+     * @param list<string> $datasets
+     */
+    public static function ambiguousColumn(string $column, array $datasets): self
+    {
+        return new self(sprintf(
+            'The column [%s] is declared by more than one dataset (%s). Qualify it as [dataset.%s].',
+            $column,
+            implode(', ', $datasets),
+            $column,
+        ));
+    }
+
+    /**
+     * @param list<string> $columns
+     */
+    public static function unknownOutputColumn(string $column, array $columns): self
+    {
+        return new self(sprintf(
+            'A grouped query outputs only [%s], so it cannot filter or sort by [%s].',
+            implode(', ', $columns),
+            $column,
+        ));
+    }
+
+    public static function nonNumericAggregate(string $aggregate, string $type): self
+    {
+        return new self(sprintf('Cannot compute [%s] over a %s field.', $aggregate, $type));
     }
 
     public static function unqualifiedJoinKey(string $column): self

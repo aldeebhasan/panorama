@@ -7,7 +7,7 @@ namespace Aldeebhasan\Panorama\Schema;
  * drive mapping, casting and normalization.
  *
  * The properties are written only by the {@see Schema} builder; everything
- * downstream (casts, workspaces, renderers) treats them as read only.
+ * downstream (casts, queries, renderers) treats them as read only.
  */
 final class Field
 {

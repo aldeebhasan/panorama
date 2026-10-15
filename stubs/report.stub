@@ -3,7 +3,7 @@
 namespace {{ namespace }};
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Column;
 use Aldeebhasan\Panorama\Report\Report;
 
@@ -28,10 +28,11 @@ class {{ class }} extends Report
     }
 
     /**
-     * The merge this report is. Join keys are inferred from the relations the
-     * dataset schemas declare.
+     * The query this report is: the datasets it reads, and how they are
+     * joined, filtered, grouped and ordered. Join keys are inferred from the
+     * relations the dataset schemas declare.
      */
-    public function query(Datasets $datasets): Merge
+    public function query(Datasets $datasets): DatasetQuery
     {
         return $datasets->from('orders');
     }

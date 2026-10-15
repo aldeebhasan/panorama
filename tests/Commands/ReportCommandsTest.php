@@ -19,7 +19,7 @@ it('lists the reports with their parameters', function (): void {
         ->toContain('Revenue by Customer')
         ->toContain('from, to')
         ->toContain('all-orders')
-        ->toContain('default');
+        ->toContain('orders, crm_customers');
 });
 
 it('warns when no reports are registered', function (): void {
@@ -124,7 +124,7 @@ it('generates a report class', function (): void {
             ->toContain('namespace App\Reports;')
             ->toContain('class RevenueByRegion extends Report')
             ->toContain("protected string \$key = 'revenue-by-region';")
-            ->toContain('public function query(Datasets $datasets): Merge');
+            ->toContain('public function query(Datasets $datasets): DatasetQuery');
     } finally {
         if (file_exists($path)) {
             unlink($path);

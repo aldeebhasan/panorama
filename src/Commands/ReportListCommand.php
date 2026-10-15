@@ -2,9 +2,9 @@
 
 namespace Aldeebhasan\Panorama\Commands;
 
+use Aldeebhasan\Panorama\Dataset\Datasets;
 use Aldeebhasan\Panorama\Exceptions\PanoramaException;
 use Aldeebhasan\Panorama\Panorama;
-use Aldeebhasan\Panorama\Report\Report;
 use Illuminate\Console\Command;
 use Symfony\Component\Console\Attribute\AsCommand;
 
@@ -12,9 +12,9 @@ use Symfony\Component\Console\Attribute\AsCommand;
 class ReportListCommand extends Command
 {
     protected $signature = 'reports:list';
-    protected $description = 'List the registered reports and the parameters they accept';
+    protected $description = 'List the registered reports, the parameters they accept and the datasets they read';
 
-    public function handle(Panorama $panorama): int
+    public function handle(Panorama $panorama, Datasets $datasets): int
     {
         if ($panorama->keys() === []) {
             $this->components->warn('No reports registered, add them to the [panorama.reports] config.');
@@ -32,14 +32,15 @@ class ReportListCommand extends Command
                     $key,
                     $report->name(),
                     implode(', ', array_keys($report->parameters())) ?: '—',
-                    $report instanceof Report ? ($report->engine() ?? 'default') : 'default',
+                    // Building the query fetches nothing, so it is safe to ask.
+                    implode(', ', $report->query($datasets)->datasets()),
                 ];
             } catch (PanoramaException $e) {
                 $rows[] = [$key, '<error>' . $e->getMessage() . '</error>', '—', '—'];
             }
         }
 
-        $this->table(['Key', 'Name', 'Parameters', 'Engine'], $rows);
+        $this->table(['Key', 'Name', 'Parameters', 'Datasets'], $rows);
 
         return self::SUCCESS;
     }

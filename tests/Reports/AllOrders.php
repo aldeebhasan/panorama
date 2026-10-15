@@ -3,7 +3,7 @@
 namespace Aldeebhasan\Panorama\Tests\Reports;
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Report;
 
 /**
@@ -12,7 +12,7 @@ use Aldeebhasan\Panorama\Report\Report;
  */
 class AllOrders extends Report
 {
-    public function query(Datasets $datasets): Merge
+    public function query(Datasets $datasets): DatasetQuery
     {
         return $datasets->from('orders')->orderBy('orders.id');
     }

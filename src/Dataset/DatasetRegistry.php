@@ -2,8 +2,6 @@
 
 namespace Aldeebhasan\Panorama\Dataset;
 
-use Aldeebhasan\Panorama\Connection\ConnectionRegistry;
-use Aldeebhasan\Panorama\Exceptions\ConnectionException;
 use Aldeebhasan\Panorama\Exceptions\UnknownDataset;
 use Aldeebhasan\Panorama\Schema\Schema;
 use Psr\Container\ContainerInterface;
@@ -20,10 +18,8 @@ final class DatasetRegistry
     /** @var array<string,string|Dataset> */
     private array $datasets = [];
 
-    public function __construct(
-        private readonly ConnectionRegistry $connections,
-        private readonly ContainerInterface $container,
-    ) {
+    public function __construct(private readonly ContainerInterface $container)
+    {
     }
 
     /**
@@ -84,20 +80,15 @@ final class DatasetRegistry
     }
 
     /**
-     * A fresh instance of the named dataset, with its connection attached.
+     * A fresh instance of the named dataset.
      *
      * @throws UnknownDataset
-     * @throws ConnectionException
      */
     public function get(string $name): Dataset
     {
         $dataset = $this->datasets[$name] ?? throw UnknownDataset::named($name, $this->names());
 
-        $instance = is_string($dataset) ? $this->resolve($dataset) : clone $dataset;
-
-        return $instance->connectionName() === ''
-            ? $instance
-            : $instance->withConnection($this->connections->get($instance->connectionName()));
+        return is_string($dataset) ? $this->resolve($dataset) : clone $dataset;
     }
 
     public function has(string $name): bool
@@ -120,7 +111,6 @@ final class DatasetRegistry
      * @return array<string,Dataset>
      *
      * @throws UnknownDataset
-     * @throws ConnectionException
      */
     public function all(): array
     {

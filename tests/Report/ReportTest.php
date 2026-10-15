@@ -4,7 +4,7 @@ use Aldeebhasan\Panorama\Dataset\Datasets;
 use Aldeebhasan\Panorama\Exceptions\RenderException;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
 use Aldeebhasan\Panorama\Panorama;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Column;
 use Aldeebhasan\Panorama\Report\Report;
 use Aldeebhasan\Panorama\Tests\Reports\AllOrders;
@@ -75,7 +75,7 @@ it('runs a ready made report instance', function (): void {
     {
         protected string $key = 'inline';
 
-        public function query(Datasets $datasets): Merge
+        public function query(Datasets $datasets): DatasetQuery
         {
             return $datasets->from('orders')->orderBy('orders.id')->limit(1);
         }
@@ -135,11 +135,12 @@ it('runs the acceptance case: two sources merged and aggregated', function (): v
 
     expect($rows)->toHaveCount(2)
         ->and($rows[0]['name'])->toBe('Ada')
-        ->and((float) $rows[0]['revenue'])->toEqualWithDelta(49.99, 0.0001)
-        ->and($rows[1]['name'])->toBe('Linus');
+        ->and($rows[0]['revenue'])->toBe(49.99)
+        ->and($rows[1]['name'])->toBe('Linus')
+        ->and($rows[1]['revenue'])->toBe(5.5);
 });
 
-it('executes the merge only once per run', function (): void {
+it('executes the query only once per run', function (): void {
     $run = app(Panorama::class)->run('all-orders');
 
     expect($run->result())->toBe($run->result());
@@ -149,7 +150,7 @@ it('does nothing until the rows are asked for', function (): void {
     $run = app(Panorama::class)->run('all-orders');
 
     expect($run->report()->key())->toBe('all-orders')
-        ->and($run->merge())->toBeInstanceOf(Merge::class);
+        ->and($run->query())->toBeInstanceOf(DatasetQuery::class);
 });
 
 it('uses the columns the report declared', function (): void {
@@ -175,31 +176,6 @@ it('streams the rows', function (): void {
 
         break;
     }
-});
-
-/*
-|--------------------------------------------------------------------------
-| the engine
-|--------------------------------------------------------------------------
-*/
-
-it('runs on the engine the report declares', function (): void {
-    $report = new class extends Report
-    {
-        protected string $key = 'on-database';
-        protected ?string $engine = 'database';
-
-        public function query(Datasets $datasets): Merge
-        {
-            return $datasets->from('orders');
-        }
-    };
-
-    expect(app(Panorama::class)->run($report)->merge()->engine())->toBe('database');
-});
-
-it('leaves the engine to the config when the report names none', function (): void {
-    expect(app(Panorama::class)->run('all-orders')->merge()->engine())->toBeNull();
 });
 
 /*

@@ -5,6 +5,8 @@ namespace Aldeebhasan\Panorama\Tests\Datasets;
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Schema\Schema;
+use Generator;
+use Illuminate\Support\Facades\Http;
 
 /**
  * A paginated HTTP source whose field names differ from the ones the report
@@ -13,15 +15,27 @@ use Aldeebhasan\Panorama\Schema\Schema;
 class CrmCustomers extends Dataset
 {
     public string $name = 'crm_customers';
-    public string $connection = 'crm_api';
 
-    public function fetch(Params $params): iterable
+    public function fetch(Params $params): Generator
     {
-        return $this->http()->paginate(
-            '/customers',
-            ['updated_since' => $params->string('from')],
-            perPage: 2,
-        );
+        for ($page = 1; ; $page++) {
+            $rows = Http::baseUrl('https://crm.test')
+                ->acceptJson()
+                ->throw()
+                ->get('/customers', ['updated_since' => $params->string('from'), 'page' => $page, 'per_page' => 2])
+                ->json('data');
+
+            if (!is_array($rows) || $rows === []) {
+                return;
+            }
+
+            yield from $rows;
+
+            // A short page is the last page.
+            if (count($rows) < 2) {
+                return;
+            }
+        }
     }
 
     public function schema(): Schema

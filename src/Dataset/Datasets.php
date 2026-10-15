@@ -2,70 +2,51 @@
 
 namespace Aldeebhasan\Panorama\Dataset;
 
-use Aldeebhasan\Panorama\Query\Merge;
-use Aldeebhasan\Panorama\Query\Query;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
+use Aldeebhasan\Panorama\Query\Executor;
 use Aldeebhasan\Panorama\Schema\Schema;
-use Aldeebhasan\Panorama\Workspace\MergeRunner;
 
 /**
- * The entry point to datasets and merges: sources are tables, and a report is
- * a query over them.
+ * The entry point to datasets and the queries reports build over them.
  *
  * Standalone:
  *
  *     Datasets::from('orders')->params(['from' => '2026-01-01'])->get();
  *
- * Merged through a declared relation:
+ * Joined through a declared relation, grouped and aggregated:
  *
  *     Datasets::from('orders')
  *         ->join('crm_customers')
- *         ->select('crm_customers.name', 'sum(orders.amount) as revenue')
- *         ->groupBy('crm_customers.name')
+ *         ->groupBy('crm_customers.name', ['revenue' => Aggregate::sum('orders.amount')])
+ *         ->orderBy('revenue', 'desc')
  *         ->get();
  *
  * Appended:
  *
  *     Datasets::union('shop_a_sales', 'shop_b_sales')->tagSource('source')->get();
- *
- * Or hand written, for anything the builder does not cover:
- *
- *     Datasets::sql('select ... from orders o join crm_customers c on c.id = o.customer_id')->get();
  */
 final class Datasets
 {
     public function __construct(
         private readonly DatasetRegistry $registry,
-        private readonly MergeRunner $runner,
+        private readonly Executor $executor,
     ) {
     }
 
     /*
     |--------------------------------------------------------------------------
-    | Merges
+    | Queries
     |--------------------------------------------------------------------------
     */
 
-    public function from(string $dataset): Merge
+    public function from(string $dataset): DatasetQuery
     {
-        return new Merge(Query::from($dataset), $this->runner);
+        return DatasetQuery::from($this->executor, $dataset);
     }
 
-    public function union(string ...$datasets): Merge
+    public function union(string ...$datasets): DatasetQuery
     {
-        return new Merge(Query::union(...$datasets), $this->runner);
-    }
-
-    /**
-     * @param list<mixed> $bindings
-     */
-    public function sql(string $sql, array $bindings = []): Merge
-    {
-        return new Merge(Query::raw($sql, $bindings), $this->runner);
-    }
-
-    public function merge(Query $query): Merge
-    {
-        return new Merge($query, $this->runner);
+        return DatasetQuery::union($this->executor, ...$datasets);
     }
 
     /*

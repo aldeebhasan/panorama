@@ -4,16 +4,13 @@ namespace Aldeebhasan\Panorama\Facades;
 
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
-use Aldeebhasan\Panorama\Query\Merge;
-use Aldeebhasan\Panorama\Query\Query;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Schema\Schema;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @method static Merge from(string $dataset)
- * @method static Merge union(string ...$datasets)
- * @method static Merge sql(string $sql, list<mixed> $bindings = [])
- * @method static Merge merge(Query $query)
+ * @method static DatasetQuery from(string $dataset)
+ * @method static DatasetQuery union(string ...$datasets)
  * @method static Dataset get(string $name)
  * @method static bool has(string $name)
  * @method static list<string> names()

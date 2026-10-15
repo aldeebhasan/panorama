@@ -2,11 +2,6 @@
 
 namespace Aldeebhasan\Panorama\Dataset;
 
-use Aldeebhasan\Panorama\Connection\ArrayConnection;
-use Aldeebhasan\Panorama\Connection\ConnectionContract;
-use Aldeebhasan\Panorama\Connection\DatabaseConnection;
-use Aldeebhasan\Panorama\Connection\HttpConnection;
-use Aldeebhasan\Panorama\Exceptions\ConnectionException;
 use Aldeebhasan\Panorama\Exceptions\PanoramaException;
 use Aldeebhasan\Panorama\Exceptions\SourceUnavailable;
 use Aldeebhasan\Panorama\Schema\Processor;
@@ -16,26 +11,22 @@ use Generator;
 use Throwable;
 
 /**
- * What data to pull from a connection, plus the shape it guarantees.
+ * Where a report's data comes from, plus the shape it guarantees.
  *
- * A dataset is the reusable unit: it is defined once and then used standalone
- * or merged with any other dataset. Consumers never see raw rows, only the
- * normalized ones {@see rows()} yields.
+ * A dataset fetches its own rows, with whatever the application already uses
+ * to reach the source: a query builder cursor, an HTTP client, an Eloquent
+ * model. It is defined once and then used standalone or merged with any other
+ * dataset. Consumers never see raw rows, only the normalized ones
+ * {@see rows()} yields.
  */
 abstract class Dataset
 {
     /**
-     * The stable identifier, used as the table name in a workspace. Defaults
-     * to the snake-cased class basename.
+     * The stable identifier reports and queries refer to this dataset by.
+     * Defaults to the snake-cased class basename.
      */
     public string $name = '';
 
-    /**
-     * The name of the connection in config this dataset reads from.
-     */
-    public string $connection = '';
-
-    private ?ConnectionContract $resolved = null;
     private ?Processor $processor = null;
 
     /**
@@ -71,30 +62,6 @@ abstract class Dataset
         $basename = basename(str_replace('\\', '/', static::class));
 
         return strtolower((string) preg_replace('/(?<!^)[A-Z]/', '_$0', $basename));
-    }
-
-    public function connectionName(): string
-    {
-        return $this->connection;
-    }
-
-    /**
-     * Attach the connection this dataset named. The registry does this when it
-     * hands out an instance.
-     */
-    public function withConnection(ConnectionContract $connection): static
-    {
-        $this->resolved = $connection;
-
-        return $this;
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    public function connection(): ConnectionContract
-    {
-        return $this->resolved ?? throw ConnectionException::noConnection($this->name());
     }
 
     /**
@@ -143,56 +110,5 @@ abstract class Dataset
         $declared = array_keys($this->parameters());
 
         return $declared === [] ? $params : $params->only($declared);
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    protected function query(): DatabaseConnection
-    {
-        return $this->expect(DatabaseConnection::class, 'database');
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    protected function http(): HttpConnection
-    {
-        return $this->expect(HttpConnection::class, 'http');
-    }
-
-    /**
-     * @throws ConnectionException
-     */
-    protected function fixtures(): ArrayConnection
-    {
-        return $this->expect(ArrayConnection::class, 'array');
-    }
-
-    /**
-     * Narrow the attached connection to the kind this dataset asked for, and
-     * say plainly what it got instead when it is the wrong one.
-     *
-     * @template T of ConnectionContract
-     *
-     * @param class-string<T> $kind
-     * @return T
-     *
-     * @throws ConnectionException
-     */
-    private function expect(string $kind, string $driver): ConnectionContract
-    {
-        $connection = $this->connection();
-
-        if (!$connection instanceof $kind) {
-            throw ConnectionException::wrongKind(
-                $this->name(),
-                $connection->name(),
-                $connection->driver(),
-                $driver,
-            );
-        }
-
-        return $connection;
     }
 }

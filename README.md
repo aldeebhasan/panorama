@@ -8,25 +8,26 @@
 Reporting data is spread across application databases, external APIs and files, and every report re-implements fetching,
 cleaning and joining it.
 
-Panorama lets you define each source **once** — where the data lives, plus the exact shape it guarantees — and then use it
-alone or merge it with any other source into a single report.
+Panorama lets you define each source **once**, as a dataset that fetches its own rows and declares the exact shape it
+guarantees, and then build reports that use it alone or merge it with any other dataset.
 
-The mental model in one line: **sources are tables, and a report is a query over them.**
+The mental model in one line: **datasets provide the rows, and a report is a query over them.**
 
 ```php
-Datasets::from('orders')              // a MySQL table
-    ->join('crm_customers')           // an HTTP API; the join key is inferred
-    ->select('crm_customers.name', 'sum(orders.amount) as revenue')
-    ->groupBy('crm_customers.name')
+Datasets::from('orders')              // rows from a database table
+    ->join('crm_customers')           // rows from an HTTP API; the join key is inferred
+    ->groupBy('crm_customers.name', ['revenue' => Aggregate::sum('orders.amount')])
     ->get();
 ```
+
+Panorama does not reach your sources for you. A dataset fetches with whatever the application already uses: a query
+builder cursor, the HTTP client, an Eloquent model. The merge runs in PHP, so there is no database the package needs
+to write to.
 
 ## Requirements
 
 - PHP 8.2+
 - Laravel 11, 12 or 13
-- For the database workspace: SQLite, MySQL 8+, MariaDB 10.2+ or PostgreSQL. CI runs the suite against SQLite, MySQL
-  and PostgreSQL.
 
 ## Installation
 
@@ -35,36 +36,13 @@ composer require aldeebhasan/panorama
 php artisan vendor:publish --tag="panorama-config"
 ```
 
-## The five concepts
+## The three concepts
 
 | Concept | Responsibility | Example |
 | --- | --- | --- |
-| Connection | How to reach a system: credentials, base URL, auth. Defined once, shared by many datasets. | `mysql`, `crm_api` |
-| Dataset | What to pull from a connection, plus its schema. The reusable unit. | `orders`, `crm_customers` |
+| Dataset | Fetches rows from one source, and declares their schema. The reusable unit. | `orders`, `crm_customers` |
 | Schema | The contract of a dataset: fields, types, key, field mapping, relations. | `customer_id` is a string referencing `crm_customers.id` |
-| Workspace | The engine where datasets become tables and queries run. | the application database |
-| Report | Uses one dataset or merges several, then renders and delivers the result. | revenue by customer, as CSV |
-
-## Connections
-
-Declare each system once, in `config/panorama.php`:
-
-```php
-'connections' => [
-    'mysql' => ['driver' => 'database', 'connection' => 'mysql'],
-
-    'crm_api' => [
-        'driver' => 'http',
-        'base_url' => env('CRM_URL'),
-        'auth' => ['bearer' => env('CRM_TOKEN')],
-    ],
-
-    // For tests and fixtures.
-    'memory' => ['driver' => 'array', 'tables' => ['orders' => [/* rows */]]],
-],
-```
-
-Connections are built lazily, so declaring one never opens a socket until a dataset fetches from it.
+| Report | Queries one dataset or merges several, then renders and delivers the result. | revenue by customer, as CSV |
 
 ## Datasets
 
@@ -72,17 +50,17 @@ Connections are built lazily, so declaring one never opens a socket until a data
 php artisan make:dataset Orders
 ```
 
-A dataset says where its rows come from and what shape they are guaranteed to have:
+A dataset fetches its own rows and says what shape they are guaranteed to have:
 
 ```php
 use Aldeebhasan\Panorama\Dataset\Dataset;
 use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Schema\Schema;
+use Illuminate\Support\Facades\DB;
 
 class Orders extends Dataset
 {
     public string $name = 'orders';
-    public string $connection = 'mysql';
 
     // Filters this dataset accepts, with their validation rules.
     public function parameters(): array
@@ -93,7 +71,7 @@ class Orders extends Dataset
     public function fetch(Params $params): iterable
     {
         // Pushdown: the filters narrow the fetch, not the result.
-        return $this->query()->table('orders')
+        return DB::table('orders')
             ->whereBetween('created_at', [$params->from, $params->to])
             ->cursor();
     }
@@ -116,11 +94,21 @@ And one reading an API, whose field names differ:
 class CrmCustomers extends Dataset
 {
     public string $name = 'crm_customers';
-    public string $connection = 'crm_api';
 
     public function fetch(Params $params): iterable
     {
-        return $this->http()->paginate('/customers', ['updated_since' => $params->from]);
+        for ($page = 1; ; $page++) {
+            $rows = Http::withToken(config('services.crm.token'))
+                ->get(config('services.crm.url') . '/customers', ['updated_since' => $params->from, 'page' => $page])
+                ->throw()
+                ->json('data');
+
+            if ($rows === []) {
+                return;
+            }
+
+            yield from $rows;
+        }
     }
 
     public function schema(): Schema
@@ -144,8 +132,9 @@ Register them by listing or by discovery:
 ],
 ```
 
-Datasets are looked up by **name**, so reports never depend on class names. Rows are generators throughout, so a dataset
-of any size costs one row of memory.
+Datasets are looked up by **name**, so reports never depend on class names. Return a generator or a cursor from
+`fetch()` rather than an array, and a dataset of any size costs one row of memory. Any failure while fetching is
+rethrown as `SourceUnavailable`, naming the dataset.
 
 ### Schema
 
@@ -174,44 +163,62 @@ $dataset->log()->nullified();    // values nulled
 $dataset->log()->violations();   // a sample of the reasons
 ```
 
-## Merging
+## Querying and merging
 
-Merging is a query over workspace tables. Panorama does not invent join semantics; it describes the merge and the engine
-executes it.
+A report merges datasets with a fluent query that runs in PHP:
 
 ```php
 use Aldeebhasan\Panorama\Facades\Datasets;
+use Aldeebhasan\Panorama\Query\Aggregate;
 
 // One dataset, standalone.
 Datasets::from('orders')->params(['from' => '2026-01-01'])->get();
 
-// Enrich: keys inferred from the references() the schemas declare.
+// Join on a shared column: keys inferred from the references() the schemas declare...
 Datasets::from('orders')
     ->join('crm_customers')
-    ->select('crm_customers.name', 'sum(orders.amount) as revenue')
-    ->groupBy('crm_customers.name')
+    ->groupBy('crm_customers.name', [
+        'revenue' => Aggregate::sum('orders.amount'),
+        'orders' => Aggregate::count(),
+    ])
     ->orderBy('revenue', 'desc')
     ->get();
 
+// ...or named, in either order.
+Datasets::from('orders')->leftJoin('crm_customers', 'orders.customer_id', 'crm_customers.id');
+
 // Append same-shaped datasets, tagging where each row came from.
 Datasets::union('shop_a_sales', 'shop_b_sales')->tagSource('source')->get();
-
-// Hand written, for anything the builder does not cover.
-Datasets::sql('select c.name, count(*) as orders
-               from orders o join crm_customers c on c.id = o.customer_id
-               group by c.name')->get();
 ```
 
-Also available: `leftJoin`, `where`, `whereIn`, `whereNotIn`, `whereBetween`, `whereNull`, `whereNotNull`, `whereRaw`,
-`havingRaw`, `limit`, `offset`, and `result()` for a streamed result instead of an array.
+Columns are written `field`, or `dataset.field` when more than one dataset declares the field.
+
+| | |
+| --- | --- |
+| Joining | `join`, `leftJoin` |
+| Filtering, before grouping | `where`, `whereIn`, `whereNotIn`, `whereBetween`, `whereNull`, `whereNotNull`, and `filter(fn (array $row) => ...)` for anything else, with the row keyed by `dataset.field` |
+| Grouping | `groupBy($columns, $aggregates)`, `aggregate($aggregates)` for totals over every row, `having` on the output columns |
+| Aggregates | `Aggregate::sum`, `avg`, `min`, `max`, `count()`, `count('field')`, `countDistinct` |
+| Shaping | `select('orders.id', 'crm_customers.name as customer')`, `orderBy`, `limit`, `offset` |
+| Running | `get()`, `first()`, `result()` for a streamed result, `loaded()` for row counts per dataset |
 
 **Checked before anything is fetched:**
 
+- Every column must exist, and an unqualified one must belong to exactly one dataset in the query.
 - Join keys must have comparable declared types. Joining a string key against an int key fails with a clear error instead
   of returning an empty result that looks like "no data".
 - Union members must share field names and types.
-- Only the datasets the query names are fetched and loaded.
-- Parameters are passed down to every dataset that declares them.
+- `sum` and `avg` need a numeric field.
+
+**How it runs.** The first dataset streams. Each joined dataset is read once and held in memory, indexed by its join key.
+Grouping and sorting hold their rows in memory too, as any engine has to. A query that neither groups nor sorts holds
+nothing but its joined datasets. Each dataset receives only the parameters it declares.
+
+**Semantics follow SQL.** A null on either side of a comparison matches nothing, `not in` a list holding a null matches
+nothing, and aggregates skip nulls. `like` is case sensitive and `ilike` is not. Nulls sort first ascending and last
+descending, as in SQLite and MySQL. Decimals are summed exactly at their declared scale, so `19.99 + 30.00` is `49.99`.
+With no `select`, every field of every dataset is returned, and a field name two datasets share comes out as
+`dataset.field` for both.
 
 ## Reports
 
@@ -221,7 +228,8 @@ php artisan make:report RevenueByCustomer
 
 ```php
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\Aggregate;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Column;
 use Aldeebhasan\Panorama\Report\Report;
 
@@ -235,12 +243,12 @@ class RevenueByCustomer extends Report
         ];
     }
 
-    public function query(Datasets $datasets): Merge
+    public function query(Datasets $datasets): DatasetQuery
     {
         return $datasets->from('orders')
             ->join('crm_customers')
-            ->select('crm_customers.name', 'sum(orders.amount) as revenue')
-            ->groupBy('crm_customers.name');
+            ->groupBy('crm_customers.name', ['revenue' => Aggregate::sum('orders.amount')])
+            ->orderBy('revenue', 'desc');
     }
 
     public function columns(): array
@@ -292,38 +300,12 @@ A column carries two readings of the same cell, which is why one report renders 
   and `total()` columns get a footer.
 - **JSON** uses the raw reading — another system wants `1234.56`, not `"1,234.56 USD"`.
 
-## Workspaces
-
-The workspace is the engine datasets are loaded into and merged in. Datasets and reports are identical across engines, so
-it is a deployment choice:
-
-```php
-'workspace' => env('PANORAMA_WORKSPACE', 'database'),
-```
-
-The MVP ships one engine. `DatabaseWorkspace` loads each dataset into a temporary table in a database the application
-already has and merges them with SQL.
-
-Temporary tables are invisible to other sessions and vanish with the connection, so a crashed run leaves nothing behind.
-They need `CREATE TEMPORARY TABLE` and a connection held open for the whole run, which some managed databases and
-pgbouncer in transaction-pooling mode do not give. Turn them off and real prefixed tables are created and dropped
-instead:
-
-```php
-'workspaces' => ['database' => ['temporary' => false]],
-```
-
-Tables are dropped when the rows have been read, when the result is abandoned half way, and when a dataset fails to load.
-
-Note: hand written SQL is wrapped in common table expressions, so `Datasets::sql()` needs MySQL 8+, PostgreSQL, or
-SQLite 3.8.3+. The fluent builder has no such requirement.
-
 ## Console
 
 ```bash
-php artisan datasets:list                                   # datasets, connections and relations
+php artisan datasets:list                                   # datasets, keys and relations
 php artisan datasets:describe orders --sample=5              # schema, parameters and a sample of rows
-php artisan reports:list                                     # reports and the parameters they accept
+php artisan reports:list                                     # reports, their parameters and datasets
 php artisan reports:run revenue-by-customer --param=from=2026-01-01 --param=to=2026-09-30 --format=csv
 php artisan reports:run revenue-by-customer --store --disk=s3
 php artisan make:dataset CrmCustomers
@@ -345,16 +327,7 @@ Datasets::fake('crm_customers', [
 composer test
 ```
 
-The suite runs on SQLite in memory, so a clone needs nothing installed. `PANORAMA_DB` points it at a real server
-instead, which is how CI covers the engines whose SQL differs:
-
-```bash
-PANORAMA_DB=mysql PANORAMA_DB_USERNAME=root PANORAMA_DB_PASSWORD=secret composer test
-PANORAMA_DB=pgsql PANORAMA_DB_USERNAME=postgres PANORAMA_DB_PASSWORD=secret composer test
-```
-
-Accepted values are `sqlite`, `mysql`, `mariadb` and `pgsql`; `PANORAMA_DB_HOST`, `_PORT` and `_DATABASE` default to
-`127.0.0.1`, the engine's own port and `panorama`. The database has to exist, and every test drops the tables in it.
+The suite needs nothing installed: the one dataset that reads a real table does so from SQLite in memory.
 
 ## Extending
 
@@ -364,19 +337,13 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 | --- | --- | --- |
 | A format (XLSX, PDF, HTML) | `Render\RendererContract` | `RendererRegistry::register()` |
 | A destination (mail, Slack) | `Deliver\DestinationContract` | pass it to `RenderedReport::to()` |
-| An engine (DuckDB, a warehouse) | `Workspace\WorkspaceContract` | `WorkspaceFactory` |
-| A connection driver | `Connection\ConnectionContract` | `ConnectionRegistry::register()` |
+| A source | extend `Dataset\Dataset` | the `datasets` config |
 | A field type's casting | `Schema\Casts\Cast` | pass it to `Schema\Processor` |
-
-A new workspace engine must pass the shared contract suite in `tests/Workspace/WorkspaceContractTest.php`, which
-describes behaviour only and mentions no SQL.
 
 ## Roadmap
 
-See [docs/roadmap.md](docs/roadmap.md) for what is in the MVP, what was deliberately left out, and why.
-
-Not yet shipped: `PhpWorkspace`, DuckDB, XLSX / PDF / HTML renderers, mail and notification delivery, queued runs,
-scheduling, run history, snapshots and incremental sync, result caching.
+Not yet shipped: XLSX / PDF / HTML renderers, mail and notification delivery, queued runs, scheduling, run history,
+snapshots and incremental sync, result caching.
 
 ## Changelog
 

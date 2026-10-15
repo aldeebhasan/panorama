@@ -3,14 +3,14 @@
 namespace Aldeebhasan\Panorama\Tests\Reports;
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Report;
 
 class FinanceOnly extends Report
 {
     protected string $key = 'finance-only';
 
-    public function query(Datasets $datasets): Merge
+    public function query(Datasets $datasets): DatasetQuery
     {
         return $datasets->from('orders');
     }

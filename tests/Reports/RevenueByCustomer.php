@@ -3,13 +3,14 @@
 namespace Aldeebhasan\Panorama\Tests\Reports;
 
 use Aldeebhasan\Panorama\Dataset\Datasets;
-use Aldeebhasan\Panorama\Query\Merge;
+use Aldeebhasan\Panorama\Query\Aggregate;
+use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Report\Column;
 use Aldeebhasan\Panorama\Report\Report;
 
 /**
- * The design document's own example, and the MVP's acceptance test: a database
- * dataset merged with an HTTP one, aggregated and exported.
+ * The design document's own example, and the acceptance test: a dataset of
+ * orders merged with one read over HTTP, aggregated and exported.
  */
 class RevenueByCustomer extends Report
 {
@@ -24,12 +25,11 @@ class RevenueByCustomer extends Report
         ];
     }
 
-    public function query(Datasets $datasets): Merge
+    public function query(Datasets $datasets): DatasetQuery
     {
         return $datasets->from('orders')
             ->join('crm_customers')
-            ->select('crm_customers.name', 'sum(orders.amount) as revenue')
-            ->groupBy('crm_customers.name')
+            ->groupBy('crm_customers.name', ['revenue' => Aggregate::sum('orders.amount')])
             ->orderBy('name');
     }
 

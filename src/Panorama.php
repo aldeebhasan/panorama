@@ -8,7 +8,6 @@ use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
-use Aldeebhasan\Panorama\Report\Report;
 use Aldeebhasan\Panorama\Report\ReportContract;
 use Aldeebhasan\Panorama\Report\ReportRun;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
@@ -86,17 +85,10 @@ class Panorama
 
         $validated = $this->validator->validate(Params::make($params), $instance->parameters());
 
-        $merge = $instance->query($this->datasets)->params($validated);
-
-        $engine = $instance instanceof Report ? $instance->engine() : null;
-        if ($engine !== null) {
-            $merge->on($engine);
-        }
-
         return new ReportRun(
             $instance,
             $validated,
-            $merge,
+            $instance->query($this->datasets)->params($validated),
             $this->renderers,
             $this->download,
             $this->storage,

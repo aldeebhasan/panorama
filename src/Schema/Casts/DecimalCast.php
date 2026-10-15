@@ -8,9 +8,9 @@ use Aldeebhasan\Panorama\Schema\Field;
 /**
  * Rounds to the declared scale and returns a float.
  *
- * Float, not a string or a bcmath value: the workspaces store decimals in real
- * DECIMAL columns and aggregate them in SQL, so PHP only ever carries the value
- * between the source and the table. Presentation is the renderer's job, through
+ * Float, not a string or a bcmath value, so a row reads as a number everywhere.
+ * Sums stay exact anyway: an aggregate over a decimal field adds the values as
+ * integers at the declared scale. Presentation is the renderer's job, through
  * `Column::money()`.
  */
 final class DecimalCast implements Cast
