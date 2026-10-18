@@ -2,7 +2,7 @@
 
 All notable changes to `panorama` will be documented in this file.
 
-## Unreleased
+## v0.4.0 - 2026-10-19
 
 ### Added
 
