@@ -14,7 +14,9 @@ use Aldeebhasan\Panorama\Queue\ReportQueue;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Report\ReportContract;
 use Aldeebhasan\Panorama\Report\ReportRun;
+use Aldeebhasan\Panorama\Scheduling\ScheduledReport;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
+use Illuminate\Console\Scheduling\Schedule;
 use Psr\Container\ContainerInterface;
 
 /**
@@ -81,9 +83,7 @@ class Panorama
      */
     public function run(string|ReportContract $report, array $params = [], mixed $user = null): ReportRun
     {
-        $instance = is_string($report) && !$this->has($report) && class_exists($report)
-            ? $this->resolve($report)
-            : (is_string($report) ? $this->report($report) : $report);
+        $instance = $this->instance($report);
 
         if ($user !== null && !$instance->authorize($user)) {
             throw ReportingException::unauthorized($instance->key());
@@ -130,6 +130,32 @@ class Panorama
         );
     }
 
+    /**
+     * Queue the given report on Laravel's scheduler. The frequency is chained
+     * on the result like on any scheduled event:
+     *
+     *     Panorama::schedule('revenue-by-customer')
+     *         ->params(fn (CarbonImmutable $now) => ['from' => ..., 'to' => ...])
+     *         ->notify(fn () => User::where('team', 'finance')->get())
+     *         ->monthlyOn(1, '07:00');
+     *
+     * The report is resolved now, so a typo fails where it was written rather
+     * than when the schedule first fires.
+     *
+     * @param class-string<ReportContract>|string|ReportContract $report
+     *
+     * @throws ReportingException
+     */
+    public function schedule(string|ReportContract $report): ScheduledReport
+    {
+        $queue = $this->queue ?? throw ReportingException::queueUnavailable();
+        /** @var Schedule $schedule */
+        $schedule = $this->container->get(Schedule::class);
+        $instance = $this->instance($report);
+
+        return new ScheduledReport($schedule, $queue, $this->reference($instance), $instance->key(), $instance->name());
+    }
+
     public function has(string $key): bool
     {
         return isset($this->reports[$key]);
@@ -160,6 +186,23 @@ class Panorama
         }
 
         return $reports;
+    }
+
+    /**
+     * The report to run: a registered key, a class that was never registered,
+     * or an instance as it is.
+     *
+     * @param class-string<ReportContract>|string|ReportContract $report
+     *
+     * @throws ReportingException
+     */
+    private function instance(string|ReportContract $report): ReportContract
+    {
+        if (!is_string($report)) {
+            return $report;
+        }
+
+        return !$this->has($report) && class_exists($report) ? $this->resolve($report) : $this->report($report);
     }
 
     /**

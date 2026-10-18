@@ -13,6 +13,7 @@ use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Query\Result;
 use Aldeebhasan\Panorama\Render\RenderedReport;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
+use DateTimeInterface;
 use Generator;
 
 /**
@@ -27,6 +28,7 @@ final class ReportRun
 {
     private ?Result $result = null;
     private ?string $filename = null;
+    private ?DateTimeInterface $stamp = null;
 
     public function __construct(
         private readonly ReportContract $report,
@@ -113,6 +115,19 @@ final class ReportRun
         return $this;
     }
 
+    /**
+     * Stamp the default file name with a moment and a hash of the parameters,
+     * `revenue-2026-10-01-070000-a253e820.csv`, so runs repeated on a schedule,
+     * or fired together with other parameters, do not overwrite each other. A
+     * name given with {@see named()} is kept as it is.
+     */
+    public function stamped(DateTimeInterface $at): self
+    {
+        $this->stamp = $at;
+
+        return $this;
+    }
+
     /*
     |--------------------------------------------------------------------------
     | Rendering
@@ -172,6 +187,12 @@ final class ReportRun
 
     private function base(): string
     {
-        return $this->report instanceof Report ? $this->report->filename() : $this->report->key();
+        $base = $this->report instanceof Report ? $this->report->filename() : $this->report->key();
+
+        if ($this->stamp === null) {
+            return $base;
+        }
+
+        return sprintf('%s-%s-%s', $base, $this->stamp->format('Y-m-d-His'), hash('crc32b', serialize($this->params->all())));
     }
 }

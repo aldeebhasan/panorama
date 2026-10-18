@@ -337,6 +337,44 @@ Panorama::queue('revenue-by-customer', $filters, $request->user())
 Channels default to `mail`. Change them with `queue.channels`, and replace the wording by pointing
 `queue.notifications.ready` / `failed` at classes extending `Notifications\ReportReady` / `ReportFailed`.
 
+## Scheduled runs
+
+Schedule a report in `routes/console.php`. It is registered on Laravel's scheduler, so every frequency and constraint
+a scheduled event takes can be chained on it, and it shows up in `schedule:list` as `Report [revenue-by-customer]`:
+
+```php
+use Aldeebhasan\Panorama\Facades\Panorama;
+use Carbon\CarbonImmutable;
+
+Panorama::schedule('revenue-by-customer')
+    ->params(fn (CarbonImmutable $now) => [
+        'from' => $now->subMonthNoOverflow()->startOfMonth()->toDateString(),
+        'to' => $now->subMonthNoOverflow()->endOfMonth()->toDateString(),
+    ])
+    ->format('csv')
+    ->store('s3', 'exports/monthly')
+    ->notify(fn () => User::where('team', 'finance')->get())
+    ->monthlyOn(1, '07:00')
+    ->timezone('Europe/Berlin')
+    ->onOneServer();
+```
+
+Each time it fires, the report is queued as with `Panorama::queue()`, and the same notifications follow.
+
+- `params()` takes an array, or a closure given the moment the schedule fired, in the schedule's timezone.
+- `notify()` takes notifiables, lists of them, or closures returning either. Closures are called when the schedule
+  fires, so recipients added later are included.
+- Each run's file is stamped with that moment and a hash of its parameters,
+  `revenue-by-customer-2026-10-01-070000-a253e820.csv`, so runs do not overwrite each other, even two schedules of the
+  same report firing together. `named()` takes a string, or a closure given the same moment.
+- Scheduled runs have no user, so a report's `authorize()` is not consulted.
+- A run that cannot even be queued, for example because its parameters no longer validate, sends `ReportFailed` to
+  the same notifiables and is reported as a failed scheduled task.
+- The report and the format are checked where the schedule is defined, so a typo fails on deploy rather than the
+  first time the schedule fires.
+- Two schedules of the same report share the name `Report [key]`. Give one its own `->name()` before using
+  `onOneServer()` or `withoutOverlapping()`.
+
 ## History
 
 Every rendered report can be recorded in a `report_runs` table: which report, with which parameters, for which user,
@@ -417,7 +455,7 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 ## Roadmap
 
-Not yet shipped: XLSX and PDF renderers, scheduling, snapshots and incremental sync, result caching.
+Not yet shipped: XLSX and PDF renderers, snapshots and incremental sync, result caching.
 
 ## Changelog
 

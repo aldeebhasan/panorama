@@ -6,6 +6,13 @@ All notable changes to `panorama` will be documented in this file.
 
 ### Added
 
+- **Scheduled runs.** `Panorama::schedule($report)` registers a `Scheduling\ScheduledReport` on Laravel's scheduler.
+  It takes `params()`, `format()`, `named()`, `store()`, `notify()`, `onConnection()` and `onQueue()`, and passes every
+  frequency and constraint through to the scheduled event. Parameters, file names and notifiables can be closures
+  evaluated when the schedule fires. Each run's file name is stamped with that moment and a hash of its parameters. A run that cannot be queued
+  notifies `ReportFailed`.
+- `ReportRun::stamped()` and `PendingReport::stamped()`, which stamp the default file name with a moment and a hash of the parameters.
+
 - **Queued runs.** `Panorama::queue($report, $params, $user)` validates and authorizes now, and returns a
   `Queue\PendingReport`: `format()`, `named()`, `store()`, `notify()`, `onConnection()`, `onQueue()`, `delay()`, then
   `dispatch()`. The `Queue\RunReport` job renders the report and stores it on a disk. The user is authorized again

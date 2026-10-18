@@ -4,6 +4,7 @@ namespace Aldeebhasan\Panorama\Queue;
 
 use Aldeebhasan\Panorama\Exceptions\RenderException;
 use DateInterval;
+use DateTimeImmutable;
 use DateTimeInterface;
 
 /**
@@ -19,6 +20,7 @@ final class PendingReport
     private ?string $filename = null;
     private ?string $disk = null;
     private ?string $directory = null;
+    private ?DateTimeImmutable $stamp = null;
 
     /** @var list<mixed> */
     private array $notifiables = [];
@@ -60,6 +62,17 @@ final class PendingReport
     public function named(string $filename): self
     {
         $this->filename = $filename;
+
+        return $this;
+    }
+
+    /**
+     * Stamp the default file name with a moment, so repeated runs do not
+     * overwrite each other. A name given with {@see named()} is kept as it is.
+     */
+    public function stamped(DateTimeInterface $at): self
+    {
+        $this->stamp = DateTimeImmutable::createFromInterface($at);
 
         return $this;
     }
@@ -123,6 +136,7 @@ final class PendingReport
             $this->disk,
             $this->directory,
             $this->notifiables,
+            $this->stamp,
         );
 
         return $job->onConnection($this->connection)->onQueue($this->onQueue)->delay($this->delay);

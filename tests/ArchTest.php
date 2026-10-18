@@ -25,6 +25,7 @@ arch('the core stages never reach for the framework')
         'Aldeebhasan\Panorama\Deliver',
         'Aldeebhasan\Panorama\History',
         'Aldeebhasan\Panorama\Notifications',
+        'Aldeebhasan\Panorama\Scheduling',
         'Aldeebhasan\Panorama\Support',
     ])
     ->not->toUse([

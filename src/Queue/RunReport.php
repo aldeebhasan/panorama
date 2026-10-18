@@ -3,6 +3,8 @@
 namespace Aldeebhasan\Panorama\Queue;
 
 use Aldeebhasan\Panorama\Panorama;
+use Aldeebhasan\Panorama\Report\ReportRun;
+use DateTimeImmutable;
 use Illuminate\Bus\Queueable;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Notifications\Dispatcher as Notifications;
@@ -34,6 +36,7 @@ class RunReport implements ShouldQueue
      * @param string $report the report's key, or its class when it is not registered
      * @param array<string,mixed> $params
      * @param list<mixed> $notifiables
+     * @param DateTimeImmutable|null $stamp stamps the default file name, see {@see ReportRun::stamped()}
      */
     public function __construct(
         public readonly string $report,
@@ -46,6 +49,7 @@ class RunReport implements ShouldQueue
         public readonly ?string $disk,
         public readonly ?string $directory,
         public readonly array $notifiables = [],
+        public readonly ?DateTimeImmutable $stamp = null,
     ) {
     }
 
@@ -55,6 +59,10 @@ class RunReport implements ShouldQueue
 
         if ($this->filename !== null) {
             $run->named($this->filename);
+        }
+
+        if ($this->stamp !== null) {
+            $run->stamped($this->stamp);
         }
 
         $rendered = $run->render($this->format);
