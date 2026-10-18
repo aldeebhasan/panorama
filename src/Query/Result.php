@@ -39,6 +39,7 @@ final class Result implements IteratorAggregate
 
     private bool $primed = false;
     private bool $consumed = false;
+    private int $yielded = 0;
     private ?Closure $onDone = null;
     private bool $done = false;
 
@@ -111,6 +112,8 @@ final class Result implements IteratorAggregate
             // already been started by the peek, and delegating to a started
             // generator from here is where a row goes missing.
             while ($this->rows->valid()) {
+                $this->yielded++;
+
                 yield $this->rows->current();
 
                 $this->rows->next();
@@ -155,6 +158,15 @@ final class Result implements IteratorAggregate
     public function isConsumed(): bool
     {
         return $this->consumed;
+    }
+
+    /**
+     * How many rows have been handed out so far. Once the rows run out, the
+     * size of the result, learned without holding it.
+     */
+    public function yielded(): int
+    {
+        return $this->yielded;
     }
 
     public function __destruct()

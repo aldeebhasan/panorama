@@ -6,6 +6,9 @@ use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\RenderException;
+use Aldeebhasan\Panorama\History\NullRecorder;
+use Aldeebhasan\Panorama\History\RecorderContract;
+use Aldeebhasan\Panorama\History\Recording;
 use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Query\Result;
 use Aldeebhasan\Panorama\Render\RenderedReport;
@@ -32,6 +35,8 @@ final class ReportRun
         private readonly RendererRegistry $renderers,
         private readonly DownloadDestination $download,
         private readonly StorageDestination $storage,
+        private readonly RecorderContract $recorder = new NullRecorder,
+        private readonly ?string $user = null,
     ) {
     }
 
@@ -48,6 +53,14 @@ final class ReportRun
     public function query(): DatasetQuery
     {
         return $this->query;
+    }
+
+    /**
+     * The identifier of the user the run was authorized for, if any.
+     */
+    public function user(): ?string
+    {
+        return $this->user;
     }
 
     /**
@@ -112,13 +125,24 @@ final class ReportRun
     public function render(string $format): RenderedReport
     {
         $renderer = $this->renderers->get($format);
+        $filename = $this->filename ?? $this->base() . '.' . $renderer->extension();
 
         return new RenderedReport(
-            $this->filename ?? $this->base() . '.' . $renderer->extension(),
+            $filename,
             $renderer->contentType(),
             fn(): Generator => $renderer->render($this->result(), $this->columns(), $this->report->name()),
             $this->download,
             $this->storage,
+            new Recording(
+                $this->recorder,
+                $this->report->key(),
+                $this->report->name(),
+                $this->params->all(),
+                $renderer->format(),
+                $filename,
+                $this->user,
+                fn(): int => $this->result()->yielded(),
+            ),
         );
     }
 

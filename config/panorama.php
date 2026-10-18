@@ -38,6 +38,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | History
+    |--------------------------------------------------------------------------
+    |
+    | Record every rendered report in a table: what ran, with which
+    | parameters, for whom, where it went, how long it took and why it failed.
+    | Publish and run the migration before enabling it:
+    |
+    |     php artisan vendor:publish --tag=panorama-migrations
+    |
+    | `keep_days` is how long `reports:prune` keeps a run for.
+    |
+    */
+    'history' => [
+        'enabled' => env('PANORAMA_HISTORY', false),
+        'connection' => env('PANORAMA_HISTORY_CONNECTION'),
+        'table' => 'report_runs',
+        'keep_days' => 90,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage
     |--------------------------------------------------------------------------
     |

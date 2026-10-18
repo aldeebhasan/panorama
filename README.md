@@ -311,6 +311,41 @@ app(RendererRegistry::class)->register(new HtmlRenderer(document: false));
 app(RendererRegistry::class)->register(new HtmlRenderer(stylesheet: file_get_contents(resource_path('css/report.css'))));
 ```
 
+## History
+
+Every rendered report can be recorded in a `report_runs` table: which report, with which parameters, for which user,
+in which format, where it went, how many rows and bytes, how long it took, and why it failed. It is off by default.
+
+```bash
+php artisan vendor:publish --tag="panorama-migrations"
+php artisan migrate
+```
+
+```dotenv
+PANORAMA_HISTORY=true
+```
+
+A run is inserted as `running` when delivery begins and updated to `succeeded` or `failed` once it settles. A stored
+report settles after the write and records the path it took. A download settles when its stream ends, not when the
+response is built. A run abandoned half way is recorded as failed. Reading rows with `get()` or `rows()` renders
+nothing, so it records nothing.
+
+Read it back with the `RecordedRun` model:
+
+```php
+use Aldeebhasan\Panorama\History\RecordedRun;
+
+RecordedRun::forReport('revenue-by-customer')->failed()->latestFirst()->limit(10)->get();
+```
+
+`reports:prune` deletes runs older than `history.keep_days` (90 by default), so it is worth scheduling:
+
+```php
+Schedule::command('reports:prune')->daily();
+```
+
+To keep history somewhere else, bind your own `History\RecorderContract`.
+
 ## Console
 
 ```bash
@@ -319,6 +354,8 @@ php artisan datasets:describe orders --sample=5              # schema, parameter
 php artisan reports:list                                     # reports, their parameters and datasets
 php artisan reports:run revenue-by-customer --param=from=2026-01-01 --param=to=2026-09-30 --format=html
 php artisan reports:run revenue-by-customer --store --disk=s3
+php artisan reports:history revenue-by-customer --failed --limit=10   # the recent runs, newest first
+php artisan reports:prune --days=30                          # delete older runs
 php artisan make:dataset CrmCustomers
 php artisan make:report RevenueByCustomer
 ```
@@ -349,12 +386,13 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 | A format (XLSX, PDF) | `Render\RendererContract` | `RendererRegistry::register()` |
 | A destination (mail, Slack) | `Deliver\DestinationContract` | pass it to `RenderedReport::to()` |
 | A source | extend `Dataset\Dataset` | the `datasets` config |
+| A history store | `History\RecorderContract` | bind it in the container |
 | A field type's casting | `Schema\Casts\Cast` | pass it to `Schema\Processor` |
 
 ## Roadmap
 
-Not yet shipped: XLSX and PDF renderers, mail and notification delivery, queued runs, scheduling, run history,
-snapshots and incremental sync, result caching.
+Not yet shipped: XLSX and PDF renderers, mail and notification delivery, queued runs, scheduling, snapshots and
+incremental sync, result caching.
 
 ## Changelog
 

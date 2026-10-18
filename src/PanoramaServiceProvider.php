@@ -6,12 +6,18 @@ use Aldeebhasan\Panorama\Commands\DatasetDescribeCommand;
 use Aldeebhasan\Panorama\Commands\DatasetListCommand;
 use Aldeebhasan\Panorama\Commands\MakeDatasetCommand;
 use Aldeebhasan\Panorama\Commands\MakeReportCommand;
+use Aldeebhasan\Panorama\Commands\ReportHistoryCommand;
 use Aldeebhasan\Panorama\Commands\ReportListCommand;
+use Aldeebhasan\Panorama\Commands\ReportPruneCommand;
 use Aldeebhasan\Panorama\Commands\ReportRunCommand;
 use Aldeebhasan\Panorama\Dataset\DatasetRegistry;
 use Aldeebhasan\Panorama\Dataset\Datasets;
 use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
+use Aldeebhasan\Panorama\History\DatabaseRecorder;
+use Aldeebhasan\Panorama\History\NullRecorder;
+use Aldeebhasan\Panorama\History\RecordedRun;
+use Aldeebhasan\Panorama\History\RecorderContract;
 use Aldeebhasan\Panorama\Query\Executor;
 use Aldeebhasan\Panorama\Render\CsvRenderer;
 use Aldeebhasan\Panorama\Render\HtmlRenderer;
@@ -21,6 +27,7 @@ use Aldeebhasan\Panorama\Support\ParameterValidator;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
+use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Support\ServiceProvider;
 
 class PanoramaServiceProvider extends ServiceProvider
@@ -36,6 +43,12 @@ class PanoramaServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../resources/views' => resource_path('views/vendor/panorama'),
         ], 'panorama-views');
+
+        $this->publishesMigrations([
+            __DIR__ . '/../database/migrations/create_report_runs_table.php.stub' => database_path(
+                'migrations/' . date('Y_m_d_His') . '_create_report_runs_table.php',
+            ),
+        ], 'panorama-migrations');
     }
 
     public function register(): void
@@ -43,12 +56,15 @@ class PanoramaServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__ . '/../config/panorama.php', 'panorama');
 
         $this->registerDatasets();
+        $this->registerHistory();
         $this->registerReporting();
 
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ReportListCommand::class,
                 ReportRunCommand::class,
+                ReportHistoryCommand::class,
+                ReportPruneCommand::class,
                 MakeReportCommand::class,
                 DatasetListCommand::class,
                 DatasetDescribeCommand::class,
@@ -84,6 +100,26 @@ class PanoramaServiceProvider extends ServiceProvider
     }
 
     /**
+     * Where runs are recorded, when they are.
+     */
+    private function registerHistory(): void
+    {
+        RecordedRun::configure(
+            $this->string('panorama.history.table', 'report_runs'),
+            $this->nullableString('panorama.history.connection'),
+            $this->positiveInt('panorama.history.keep_days', 90),
+        );
+
+        $this->app->singleton(RecorderContract::class, fn(Application $app) => $this->historyEnabled()
+            ? new DatabaseRecorder(
+                $app->make(ConnectionResolverInterface::class),
+                $this->string('panorama.history.table', 'report_runs'),
+                $this->nullableString('panorama.history.connection'),
+            )
+            : new NullRecorder);
+    }
+
+    /**
      * Reports, the formats they render to and the places they go.
      */
     private function registerReporting(): void
@@ -111,6 +147,7 @@ class PanoramaServiceProvider extends ServiceProvider
             $app->make(RendererRegistry::class),
             $app->make(DownloadDestination::class),
             $app->make(StorageDestination::class),
+            $app->make(RecorderContract::class),
         )));
     }
 
@@ -155,6 +192,18 @@ class PanoramaServiceProvider extends ServiceProvider
         $value = config($key, []);
 
         return is_array($value) ? $value : [];
+    }
+
+    private function historyEnabled(): bool
+    {
+        return filter_var(config('panorama.history.enabled', false), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function positiveInt(string $key, int $default): int
+    {
+        $value = filter_var(config($key), FILTER_VALIDATE_INT);
+
+        return is_int($value) && $value > 0 ? $value : $default;
     }
 
     private function string(string $key, string $default): string

@@ -7,6 +7,8 @@ use Aldeebhasan\Panorama\Dataset\Params;
 use Aldeebhasan\Panorama\Deliver\DownloadDestination;
 use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
+use Aldeebhasan\Panorama\History\NullRecorder;
+use Aldeebhasan\Panorama\History\RecorderContract;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Report\ReportContract;
 use Aldeebhasan\Panorama\Report\ReportRun;
@@ -32,6 +34,7 @@ class Panorama
         private readonly RendererRegistry $renderers,
         private readonly DownloadDestination $download,
         private readonly StorageDestination $storage,
+        private readonly RecorderContract $recorder = new NullRecorder,
     ) {
     }
 
@@ -92,6 +95,8 @@ class Panorama
             $this->renderers,
             $this->download,
             $this->storage,
+            $this->recorder,
+            self::identify($user),
         );
     }
 
@@ -125,6 +130,19 @@ class Panorama
         }
 
         return $reports;
+    }
+
+    /**
+     * The identifier a run is recorded under: the user's auth identifier, or
+     * the user itself when an identifier was passed in place of one.
+     */
+    private static function identify(mixed $user): ?string
+    {
+        if (is_object($user) && method_exists($user, 'getAuthIdentifier')) {
+            $user = $user->getAuthIdentifier();
+        }
+
+        return is_int($user) || is_string($user) ? (string) $user : null;
     }
 
     /**

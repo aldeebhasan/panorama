@@ -128,3 +128,17 @@ it('runs the completion callback exactly once', function (): void {
 
     expect($done)->toBe(1);
 });
+
+it('counts the rows it has handed out', function (): void {
+    $result = Result::of([['a' => 1], ['a' => 2], ['a' => 3]]);
+
+    expect($result->yielded())->toBe(0);
+
+    $result->columns();
+
+    expect($result->yielded())->toBe(0);
+
+    $result->toArray();
+
+    expect($result->yielded())->toBe(3);
+});

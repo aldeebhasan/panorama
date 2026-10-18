@@ -2,6 +2,25 @@
 
 All notable changes to `panorama` will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- **Run history.** With `panorama.history.enabled`, every rendered report is recorded in a `report_runs` table: report,
+  parameters, user, format, destination, stored path, rows, bytes, duration, status and error. A run is inserted as
+  `running` when delivery starts and settled as `succeeded` or `failed`. A download settles when its stream ends, and a
+  run abandoned half way is recorded as failed. Publish the migration with `--tag=panorama-migrations`.
+- `History\RecordedRun`, an Eloquent model over the table with `forReport()`, `failed()` and `latestFirst()` scopes.
+- `History\RecorderContract`, to keep history elsewhere. `DatabaseRecorder` and `NullRecorder` are the built-ins.
+- `reports:history` lists recent runs, filtered by report or `--failed`. `reports:prune` deletes runs older than
+  `history.keep_days`, or `--days`.
+- `Query\Result::yielded()`, how many rows a result has handed out.
+- `ReportRun::user()`, the identifier of the user the run was authorized for.
+
+### Changed
+
+- `RenderedReport::download()` and `store()` now go through the same delivery path as `to()`.
+
 ## v0.2.0 - 2026-10-15
 
 Panorama now focuses on building reports. Datasets fetch their own rows, and reports merge them in PHP. This breaks the
