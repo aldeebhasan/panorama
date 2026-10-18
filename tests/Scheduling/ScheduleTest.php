@@ -101,7 +101,7 @@ it('refuses an unknown report where it is defined', function (): void {
 })->throws(ReportingException::class, 'No report registered under the key [nope]');
 
 it('refuses an unknown format where it is defined', function (): void {
-    app(Panorama::class)->schedule('all-orders')->format('xlsx');
+    app(Panorama::class)->schedule('all-orders')->format('pdf');
 })->throws(RenderException::class);
 
 it('refuses an anonymous report', function (): void {

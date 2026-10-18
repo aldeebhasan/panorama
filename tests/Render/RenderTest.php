@@ -7,6 +7,7 @@ use Aldeebhasan\Panorama\Render\CsvRenderer;
 use Aldeebhasan\Panorama\Render\HtmlRenderer;
 use Aldeebhasan\Panorama\Render\JsonRenderer;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
+use Aldeebhasan\Panorama\Render\XlsxRenderer;
 use Aldeebhasan\Panorama\Report\Column;
 use Illuminate\Support\Facades\Storage;
 
@@ -16,6 +17,27 @@ beforeEach(function (): void {
         ['ext_id' => 'c-2', 'custName' => 'Linus', 'country' => null],
     ]);
 });
+
+/**
+ * The sheet XML and the workbook XML inside a rendered XLSX.
+ *
+ * @param list<array<string,mixed>> $rows
+ * @param list<Column> $columns
+ * @return array{0:string,1:string}
+ */
+function xlsx(array $rows, array $columns = [], string $title = ''): array
+{
+    $path = tempnam(sys_get_temp_dir(), 'xlsx-test-');
+    file_put_contents($path, rendered(new XlsxRenderer, $rows, $columns, $title));
+
+    $zip = new ZipArchive;
+    $zip->open($path);
+    $parts = [(string) $zip->getFromName('xl/worksheets/sheet1.xml'), (string) $zip->getFromName('xl/workbook.xml')];
+    $zip->close();
+    unlink($path);
+
+    return $parts;
+}
 
 /**
  * @param list<array<string,mixed>> $rows
@@ -222,7 +244,7 @@ it('uses a given stylesheet instead of its own', function (): void {
 it('serves the built in formats', function (): void {
     $registry = app(RendererRegistry::class);
 
-    expect($registry->formats())->toEqualCanonicalizing(['csv', 'html', 'json'])
+    expect($registry->formats())->toEqualCanonicalizing(['csv', 'html', 'json', 'xlsx'])
         ->and($registry->has('CSV'))->toBeTrue()
         ->and($registry->get('json'))->toBeInstanceOf(JsonRenderer::class);
 });
@@ -234,7 +256,7 @@ it('lets a renderer be replaced under its own name', function (): void {
     $registry->register($replacement);
 
     expect($registry->get('csv'))->toBe($replacement)
-        ->and($registry->formats())->toHaveCount(3);
+        ->and($registry->formats())->toHaveCount(4);
 });
 
 /*
@@ -340,4 +362,54 @@ it('stores at the root when the directory is empty', function (): void {
     $path = app(Panorama::class)->run('all-orders')->toCsv()->store('reports', '');
 
     expect($path)->toBe('all-orders.csv');
+});
+
+/*
+|--------------------------------------------------------------------------
+| xlsx
+|--------------------------------------------------------------------------
+*/
+
+it('writes a workbook whose sheet is named after the report', function (): void {
+    [$sheet, $workbook] = xlsx([['name' => 'Ada']], [Column::make('name')->label('Customer')], 'Revenue: Q3 / EU');
+
+    expect($workbook)->toContain('<sheet name="Revenue Q3  EU" sheetId="1" r:id="rId1"/>')
+        ->and($sheet)->toContain('<row r="1"><c t="inlineStr"><is><t xml:space="preserve">Customer</t></is></c></row>')
+        ->and($sheet)->toContain('<row r="2"><c t="inlineStr"><is><t xml:space="preserve">Ada</t></is></c></row>');
+});
+
+it('writes numeric columns as numbers and percentages in the percent format', function (): void {
+    [$sheet] = xlsx([['name' => 'Ada', 'revenue' => '1234.5', 'share' => 0.25]], [
+        Column::make('name'),
+        Column::make('revenue')->money('EUR'),
+        Column::make('share')->percent(),
+    ]);
+
+    expect($sheet)->toContain('<c><v>1234.5</v></c><c s="1"><v>0.25</v></c>');
+});
+
+it('keeps formulas and markup in a dataset as plain text', function (): void {
+    [$sheet] = xlsx([['note' => "=HYPERLINK(\"x\")<b>\x07"]]);
+
+    expect($sheet)->toContain('<t xml:space="preserve">=HYPERLINK(&quot;x&quot;)&lt;b&gt;</t>')
+        ->and($sheet)->not->toContain('<f>');
+});
+
+it('adds the totals row and falls back to a sheet named Report', function (): void {
+    [$sheet, $workbook] = xlsx([['name' => 'Ada', 'n' => 2], ['name' => 'Linus', 'n' => 3]], [
+        Column::make('name'),
+        Column::make('n')->total(),
+    ]);
+
+    expect($sheet)->toContain('<row r="4"><c t="inlineStr"><is><t xml:space="preserve">Total</t></is></c><c t="inlineStr"><is><t xml:space="preserve">5</t></is></c></row>')
+        ->and($workbook)->toContain('<sheet name="Report"');
+});
+
+it('stores a report as xlsx', function (): void {
+    Storage::fake('reports');
+
+    $path = app(Panorama::class)->run('all-orders')->toXlsx()->store('reports');
+
+    expect($path)->toBe('reports/all-orders.xlsx')
+        ->and(Storage::disk('reports')->get($path))->toStartWith("PK\x03\x04");
 });

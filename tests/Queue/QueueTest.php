@@ -95,8 +95,8 @@ it('authorizes the user when queued', function (): void {
 })->throws(ReportingException::class, 'not allowed to run the report [own-orders]');
 
 it('checks the format when queued', function (): void {
-    app(Panorama::class)->queue('all-orders')->format('xlsx');
-})->throws(RenderException::class, 'No renderer is registered for [xlsx]');
+    app(Panorama::class)->queue('all-orders')->format('pdf');
+})->throws(RenderException::class, 'No renderer is registered for [pdf]');
 
 it('refuses to queue an anonymous report', function (): void {
     $report = new class extends Report

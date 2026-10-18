@@ -6,6 +6,9 @@ All notable changes to `panorama` will be documented in this file.
 
 ### Added
 
+- **XLSX.** `XlsxRenderer`, registered as `xlsx`, and `ReportRun::toXlsx()`. Number, money and percent columns are
+  written as numbers, other cells as their display reading, all as plain text so nothing becomes a formula. It streams
+  through a temporary file and needs `ext-zip`.
 - **Scheduled runs.** `Panorama::schedule($report)` registers a `Scheduling\ScheduledReport` on Laravel's scheduler.
   It takes `params()`, `format()`, `named()`, `store()`, `notify()`, `onConnection()` and `onQueue()`, and passes every
   frequency and constraint through to the scheduled event. Parameters, file names and notifiables can be closures

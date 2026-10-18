@@ -31,6 +31,9 @@
         "illuminate/queue": "^11.0||^12.0||^13.0",
         "illuminate/support": "^11.0||^12.0||^13.0"
     },
+    "suggest": {
+        "ext-zip": "Needed to render reports as XLSX."
+    },
     "require-dev": {
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.14",

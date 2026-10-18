@@ -185,6 +185,14 @@ final class ReportRun
         return $this->render('html');
     }
 
+    /**
+     * @throws RenderException
+     */
+    public function toXlsx(): RenderedReport
+    {
+        return $this->render('xlsx');
+    }
+
     private function base(): string
     {
         $base = $this->report instanceof Report ? $this->report->filename() : $this->report->key();

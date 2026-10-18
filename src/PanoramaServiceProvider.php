@@ -26,6 +26,7 @@ use Aldeebhasan\Panorama\Render\CsvRenderer;
 use Aldeebhasan\Panorama\Render\HtmlRenderer;
 use Aldeebhasan\Panorama\Render\JsonRenderer;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
+use Aldeebhasan\Panorama\Render\XlsxRenderer;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
 use Illuminate\Contracts\Bus\Dispatcher;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
@@ -132,6 +133,7 @@ class PanoramaServiceProvider extends ServiceProvider
             new CsvRenderer,
             new HtmlRenderer,
             new JsonRenderer,
+            new XlsxRenderer,
         ]));
 
         $this->app->singleton(DownloadDestination::class, fn() => new DownloadDestination);

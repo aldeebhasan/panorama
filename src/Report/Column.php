@@ -163,6 +163,11 @@ final class Column
         return $this->numeric;
     }
 
+    public function isPercent(): bool
+    {
+        return $this->percent;
+    }
+
     /**
      * The raw cell, as the merge produced it.
      *

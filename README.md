@@ -278,6 +278,7 @@ $run->rows();                       // rows as a generator
 $run->toCsv()->download();          // a streamed response
 $run->toCsv()->store('s3');         // writes it, returns the path
 $run->toHtml()->download();         // a standalone page with the table
+$run->toXlsx()->store('s3');        // an Excel workbook
 $run->toJson()->contents();         // the document as a string
 ```
 
@@ -302,6 +303,9 @@ A column carries two readings of the same cell, which is why one report renders 
 - **HTML** uses the display reading too, as a standalone page with the table, a totals footer, and numeric columns
   right aligned. It carries its own stylesheet and loads nothing, so it opens the same from a download, a disk or a
   mail attachment. Every value is escaped.
+- **XLSX** writes number, money and percent columns as real numbers, so they can be summed, with percentages in
+  Excel's percent format. Every other cell is the display reading, and `total()` columns get a totals row. Cells are
+  plain text, so a value in a dataset is never read as a formula. It needs PHP's `zip` extension.
 - **JSON** uses the raw reading — another system wants `1234.56`, not `"1,234.56 USD"`.
 
 To embed the bare table in a page of your own, or to style it yourself, register a configured renderer under `html`:
@@ -447,7 +451,7 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 | To add | Implement | Register |
 | --- | --- | --- |
-| A format (XLSX, PDF) | `Render\RendererContract` | `RendererRegistry::register()` |
+| A format (PDF, ...) | `Render\RendererContract` | `RendererRegistry::register()` |
 | A destination (mail, Slack) | `Deliver\DestinationContract` | pass it to `RenderedReport::to()` |
 | A source | extend `Dataset\Dataset` | the `datasets` config |
 | A history store | `History\RecorderContract` | bind it in the container |
@@ -455,7 +459,7 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 ## Roadmap
 
-Not yet shipped: XLSX and PDF renderers, snapshots and incremental sync, result caching.
+Not yet shipped: a PDF renderer, snapshots and incremental sync, result caching.
 
 ## Changelog
 
