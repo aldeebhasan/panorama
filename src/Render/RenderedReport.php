@@ -28,6 +28,7 @@ final class RenderedReport
     private bool $taken = false;
     private bool $produced = false;
     private bool $delivering = false;
+    private int $bytes = 0;
 
     /**
      * @param Closure():Generator<int,string> $producer yields the document a chunk at a time
@@ -53,6 +54,15 @@ final class RenderedReport
     }
 
     /**
+     * How many bytes of the document have been produced so far. Once it is
+     * delivered, its size.
+     */
+    public function bytes(): int
+    {
+        return $this->bytes;
+    }
+
+    /**
      * The document, a chunk at a time.
      *
      * @return Generator<int,string>
@@ -71,6 +81,7 @@ final class RenderedReport
 
         try {
             foreach (($this->producer)() as $chunk) {
+                $this->bytes += strlen($chunk);
                 $this->recording?->wrote(strlen($chunk));
 
                 yield $chunk;

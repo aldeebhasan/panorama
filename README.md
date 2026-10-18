@@ -311,6 +311,32 @@ app(RendererRegistry::class)->register(new HtmlRenderer(document: false));
 app(RendererRegistry::class)->register(new HtmlRenderer(stylesheet: file_get_contents(resource_path('css/report.css'))));
 ```
 
+## Queued runs
+
+Large reports can be run by a queue worker instead of the request. Parameters are validated and the user authorized
+when the run is queued, so mistakes still surface to the caller. The worker renders the report, stores it on a disk,
+and notifies whoever asked:
+
+```php
+Panorama::queue('revenue-by-customer', $filters, $request->user())
+    ->format('csv')                 // csv unless given; checked now
+    ->store('s3', 'exports')        // the configured storage disk and path unless given
+    ->notify($request->user())      // any notifiable, or Notification::route('mail', 'finance@example.com')
+    ->onQueue('reports')            // also onConnection() and delay()
+    ->dispatch();
+```
+
+- `ReportReady` is sent once the report is stored. Reports up to `queue.attach_up_to` bytes (10 MB) are attached to
+  the mail. Larger ones are named by the path they were stored at.
+- `ReportFailed` is sent after the job's last attempt fails. The mail says that it failed, not why, because the reason
+  can name tables or hosts its recipient should not see. The reason is kept in the failed job and the run history.
+- The user is authorized again in the worker, so a permission revoked while the job waited is honoured. Models, both
+  the user and the notifiables, are queued as identifiers and fetched fresh.
+- A report must be registered, or be a named class, to be queued. An anonymous class cannot be rebuilt by a worker.
+
+Channels default to `mail`. Change them with `queue.channels`, and replace the wording by pointing
+`queue.notifications.ready` / `failed` at classes extending `Notifications\ReportReady` / `ReportFailed`.
+
 ## History
 
 Every rendered report can be recorded in a `report_runs` table: which report, with which parameters, for which user,
@@ -391,8 +417,7 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 ## Roadmap
 
-Not yet shipped: XLSX and PDF renderers, mail and notification delivery, queued runs, scheduling, snapshots and
-incremental sync, result caching.
+Not yet shipped: XLSX and PDF renderers, scheduling, snapshots and incremental sync, result caching.
 
 ## Changelog
 

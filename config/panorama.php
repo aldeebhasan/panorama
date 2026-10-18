@@ -59,6 +59,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue
+    |--------------------------------------------------------------------------
+    |
+    | Reports run with Panorama::queue() are rendered by a worker, stored on
+    | the storage disk below, and announced to whoever asked once they are
+    | ready, or once they have failed. Reports up to `attach_up_to` bytes are
+    | attached to the mail; larger ones are named by path. 0 never attaches.
+    |
+    | The notifications may be replaced by classes extending the built-ins.
+    |
+    */
+    'queue' => [
+        'connection' => env('PANORAMA_QUEUE_CONNECTION'),
+        'queue' => env('PANORAMA_QUEUE'),
+        'channels' => ['mail'],
+        'attach_up_to' => 10 * 1024 * 1024,
+        'notifications' => [
+            'ready' => Aldeebhasan\Panorama\Notifications\ReportReady::class,
+            'failed' => Aldeebhasan\Panorama\Notifications\ReportFailed::class,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage
     |--------------------------------------------------------------------------
     |

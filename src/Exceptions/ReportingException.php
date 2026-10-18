@@ -33,4 +33,18 @@ class ReportingException extends PanoramaException
     {
         return new self(sprintf('This user is not allowed to run the report [%s].', $key));
     }
+
+    public static function cannotQueue(string $report): self
+    {
+        return new self(sprintf(
+            'The report [%s] cannot be queued: a worker can only rebuild a report it can resolve by key or class. '
+            . 'Register it, or give it a named class.',
+            $report,
+        ));
+    }
+
+    public static function queueUnavailable(): self
+    {
+        return new self('Queued runs need a queue dispatcher. Resolve Panorama from the container to queue a report.');
+    }
 }

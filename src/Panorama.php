@@ -9,6 +9,8 @@ use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
 use Aldeebhasan\Panorama\History\NullRecorder;
 use Aldeebhasan\Panorama\History\RecorderContract;
+use Aldeebhasan\Panorama\Queue\PendingReport;
+use Aldeebhasan\Panorama\Queue\ReportQueue;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Report\ReportContract;
 use Aldeebhasan\Panorama\Report\ReportRun;
@@ -35,6 +37,7 @@ class Panorama
         private readonly DownloadDestination $download,
         private readonly StorageDestination $storage,
         private readonly RecorderContract $recorder = new NullRecorder,
+        private readonly ?ReportQueue $queue = null,
     ) {
     }
 
@@ -100,6 +103,33 @@ class Panorama
         );
     }
 
+    /**
+     * Prepare a queued run of the given report. The parameters are validated
+     * and the user authorized now, so a mistake surfaces to the caller rather
+     * than in a worker; nothing is queued until the run is dispatched.
+     *
+     * @param class-string<ReportContract>|string|ReportContract $report
+     * @param array<string,mixed> $params
+     * @param mixed $user checked now and again in the worker; a model is queued as its identifier
+     *
+     * @throws ReportingException
+     */
+    public function queue(string|ReportContract $report, array $params = [], mixed $user = null): PendingReport
+    {
+        $queue = $this->queue ?? throw ReportingException::queueUnavailable();
+
+        $run = $this->run($report, $params, $user);
+        $instance = $run->report();
+
+        return $queue->pending(
+            $this->reference($instance),
+            $instance->key(),
+            $instance->name(),
+            $run->params()->all(),
+            $user,
+        );
+    }
+
     public function has(string $key): bool
     {
         return isset($this->reports[$key]);
@@ -130,6 +160,25 @@ class Panorama
         }
 
         return $reports;
+    }
+
+    /**
+     * How a worker finds the report again: by key when it is registered, or by
+     * class when that class can be resolved. An anonymous class can be neither.
+     *
+     * @throws ReportingException
+     */
+    private function reference(ReportContract $report): string
+    {
+        if ($this->has($report->key())) {
+            return $report->key();
+        }
+
+        if (str_contains($report::class, '@anonymous')) {
+            throw ReportingException::cannotQueue($report->key());
+        }
+
+        return $report::class;
     }
 
     /**

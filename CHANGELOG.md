@@ -6,6 +6,15 @@ All notable changes to `panorama` will be documented in this file.
 
 ### Added
 
+- **Queued runs.** `Panorama::queue($report, $params, $user)` validates and authorizes now, and returns a
+  `Queue\PendingReport`: `format()`, `named()`, `store()`, `notify()`, `onConnection()`, `onQueue()`, `delay()`, then
+  `dispatch()`. The `Queue\RunReport` job renders the report and stores it on a disk. The user is authorized again
+  in the worker.
+- **Notifications.** `Notifications\ReportReady` is sent when a queued report is stored, with the report attached up
+  to `queue.attach_up_to` bytes. `Notifications\ReportFailed` is sent after the last attempt fails, without the
+  reason. Channels and classes are configurable under `panorama.queue`.
+- `RenderedReport::bytes()`, the size of the document produced so far.
+
 - **Run history.** With `panorama.history.enabled`, every rendered report is recorded in a `report_runs` table: report,
   parameters, user, format, destination, stored path, rows, bytes, duration, status and error. A run is inserted as
   `running` when delivery starts and settled as `succeeded` or `failed`. A download settles when its stream ends, and a
