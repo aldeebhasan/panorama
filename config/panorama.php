@@ -83,6 +83,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Cache
+    |--------------------------------------------------------------------------
+    |
+    | A report that sets `$cacheFor` keeps its rows in this cache store for
+    | that many seconds, per set of parameters. Results longer than
+    | `max_rows` are never cached. Null uses the default store.
+    |
+    */
+    'cache' => [
+        'store' => env('PANORAMA_CACHE_STORE'),
+        'max_rows' => 10000,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Storage
     |--------------------------------------------------------------------------
     |

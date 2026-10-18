@@ -379,6 +379,25 @@ Each time it fires, the report is queued as with `Panorama::queue()`, and the sa
 - Two schedules of the same report share the name `Report [key]`. Give one its own `->name()` before using
   `onOneServer()` or `withoutOverlapping()`.
 
+## Caching
+
+A report that sets `$cacheFor` keeps its rows for that many seconds. A second run with the same parameters, in the
+browser, a queued job or a schedule, reads them back without touching the datasets:
+
+```php
+class RevenueByCustomer extends Report
+{
+    protected int $cacheFor = 3600;
+}
+```
+
+- Rows are kept per report and set of validated parameters, in the store named by `cache.store`, the default one
+  unless set.
+- They are cached once they have been read to the end. A result longer than `cache.max_rows`, 10,000 by default, is
+  streamed as usual and not cached, so a large report is never held in memory or in the store.
+- The user is not part of the key. Do not cache a report whose datasets return different rows for different users.
+- To read fresh rows before the time is up, forget them: `Panorama::forget('revenue-by-customer', $params)`.
+
 ## History
 
 Every rendered report can be recorded in a `report_runs` table: which report, with which parameters, for which user,
@@ -459,7 +478,7 @@ Every stage is an interface, and the built-ins are ordinary implementations:
 
 ## Roadmap
 
-Not yet shipped: a PDF renderer, snapshots and incremental sync, result caching.
+Not yet shipped: a PDF renderer, snapshots and incremental sync.
 
 ## Changelog
 

@@ -11,6 +11,7 @@ use Aldeebhasan\Panorama\History\RecorderContract;
 use Aldeebhasan\Panorama\History\Recording;
 use Aldeebhasan\Panorama\Query\DatasetQuery;
 use Aldeebhasan\Panorama\Query\Result;
+use Aldeebhasan\Panorama\Query\ResultCache;
 use Aldeebhasan\Panorama\Render\RenderedReport;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
 use DateTimeInterface;
@@ -39,6 +40,7 @@ final class ReportRun
         private readonly StorageDestination $storage,
         private readonly RecorderContract $recorder = new NullRecorder,
         private readonly ?string $user = null,
+        private readonly ?ResultCache $cache = null,
     ) {
     }
 
@@ -66,11 +68,16 @@ final class ReportRun
     }
 
     /**
-     * The rows, streamed. Executed once per run.
+     * The rows, streamed. Executed once per run, or read from the cache when
+     * the report sets {@see Report::cacheFor()}.
      */
     public function result(): Result
     {
-        return $this->result ??= $this->query->result();
+        $seconds = $this->report instanceof Report ? $this->report->cacheFor() : 0;
+
+        return $this->result ??= $this->cache !== null && $seconds > 0
+            ? $this->cache->remember($this->report->key(), $this->params->all(), $seconds, $this->query->result(...))
+            : $this->query->result();
     }
 
     /**

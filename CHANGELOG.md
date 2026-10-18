@@ -2,6 +2,14 @@
 
 All notable changes to `panorama` will be documented in this file.
 
+## Unreleased
+
+### Added
+
+- **Result caching.** A report that sets `$cacheFor` keeps its rows for that many seconds per set of parameters, in
+  the `cache.store` store. Results longer than `cache.max_rows` are streamed and not cached. `Panorama::forget()`
+  drops them early.
+
 ## v0.3.0 - 2026-10-18
 
 ### Added

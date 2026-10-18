@@ -19,6 +19,12 @@ abstract class Report implements ReportContract
     protected string $key = '';
 
     /**
+     * How long to keep the rows, in seconds, for runs with the same
+     * parameters. 0 never caches.
+     */
+    protected int $cacheFor = 0;
+
+    /**
      * The human readable name. Defaults to the class basename made readable.
      */
     protected string $name = '';
@@ -60,6 +66,11 @@ abstract class Report implements ReportContract
     public function authorize(mixed $user = null): bool
     {
         return true;
+    }
+
+    public function cacheFor(): int
+    {
+        return $this->cacheFor;
     }
 
     /**

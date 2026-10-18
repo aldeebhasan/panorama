@@ -21,6 +21,7 @@ use Aldeebhasan\Panorama\History\RecorderContract;
 use Aldeebhasan\Panorama\Notifications\ReportFailed;
 use Aldeebhasan\Panorama\Notifications\ReportReady;
 use Aldeebhasan\Panorama\Query\Executor;
+use Aldeebhasan\Panorama\Query\ResultCache;
 use Aldeebhasan\Panorama\Queue\ReportQueue;
 use Aldeebhasan\Panorama\Render\CsvRenderer;
 use Aldeebhasan\Panorama\Render\HtmlRenderer;
@@ -29,6 +30,7 @@ use Aldeebhasan\Panorama\Render\RendererRegistry;
 use Aldeebhasan\Panorama\Render\XlsxRenderer;
 use Aldeebhasan\Panorama\Support\ParameterValidator;
 use Illuminate\Contracts\Bus\Dispatcher;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Contracts\Filesystem\Factory as FilesystemFactory;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Contracts\Validation\Factory as ValidationFactory;
@@ -155,6 +157,11 @@ class PanoramaServiceProvider extends ServiceProvider
             $this->subclass('panorama.queue.notifications.failed', ReportFailed::class),
         ));
 
+        $this->app->singleton(ResultCache::class, fn(Application $app) => new ResultCache(
+            $app->make(CacheFactory::class)->store($this->nullableString('panorama.cache.store')),
+            $this->positiveInt('panorama.cache.max_rows', 10000),
+        ));
+
         // Bound rather than shared: it holds a container reference, and under
         // Octane a singleton would outlive the request that built it.
         $this->app->bind(Panorama::class, fn(Application $app) => $this->reports(new Panorama(
@@ -166,6 +173,7 @@ class PanoramaServiceProvider extends ServiceProvider
             $app->make(StorageDestination::class),
             $app->make(RecorderContract::class),
             $app->make(ReportQueue::class),
+            $app->make(ResultCache::class),
         )));
     }
 

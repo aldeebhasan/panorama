@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Facade;
  * @method static \Aldeebhasan\Panorama\Panorama register(string|ReportContract $report)
  * @method static ReportContract report(string $key)
  * @method static ReportRun run(string|ReportContract $report, array<string,mixed> $params = [], mixed $user = null)
+ * @method static void forget(string|ReportContract $report, array<string,mixed> $params = [])
  * @method static bool has(string $key)
  * @method static list<string> keys()
  * @method static array<string,string> all()

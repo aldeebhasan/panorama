@@ -9,6 +9,7 @@ use Aldeebhasan\Panorama\Deliver\StorageDestination;
 use Aldeebhasan\Panorama\Exceptions\ReportingException;
 use Aldeebhasan\Panorama\History\NullRecorder;
 use Aldeebhasan\Panorama\History\RecorderContract;
+use Aldeebhasan\Panorama\Query\ResultCache;
 use Aldeebhasan\Panorama\Queue\PendingReport;
 use Aldeebhasan\Panorama\Queue\ReportQueue;
 use Aldeebhasan\Panorama\Render\RendererRegistry;
@@ -40,6 +41,7 @@ class Panorama
         private readonly StorageDestination $storage,
         private readonly RecorderContract $recorder = new NullRecorder,
         private readonly ?ReportQueue $queue = null,
+        private readonly ?ResultCache $cache = null,
     ) {
     }
 
@@ -100,7 +102,24 @@ class Panorama
             $this->storage,
             $this->recorder,
             self::identify($user),
+            $this->cache,
         );
+    }
+
+    /**
+     * Drop the cached rows of a report for the given parameters, so the next
+     * run reads the datasets again.
+     *
+     * @param class-string<ReportContract>|string|ReportContract $report
+     * @param array<string,mixed> $params
+     *
+     * @throws ReportingException
+     */
+    public function forget(string|ReportContract $report, array $params = []): void
+    {
+        $instance = $this->instance($report);
+
+        $this->cache?->forget($instance->key(), $this->validator->validate(Params::make($params), $instance->parameters())->all());
     }
 
     /**
